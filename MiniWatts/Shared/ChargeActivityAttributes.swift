@@ -1,4 +1,5 @@
 import ActivityKit
+import AppIntents
 import Foundation
 
 nonisolated enum LiveActivityMetric: String, Codable, Hashable, CaseIterable, Identifiable {
@@ -42,4 +43,24 @@ nonisolated struct ChargeActivityAttributes: ActivityAttributes {
     /// When the charger was connected.
     var startedAt: Date
     var startPercent: Int?
+}
+
+/// The End button on the activity.
+///
+/// Only the app can end an activity, and only while it runs. Unplug while MiniWatts is
+/// suspended, or kill it, and the activity stays — paused, but on screen — until the
+/// app runs again or iOS drops it hours later. A `LiveActivityIntent` is performed in
+/// the app's process, which iOS wakes for it, so the button closes the activity
+/// without opening MiniWatts. Compiled into both targets: the extension needs the type
+/// to draw the button, the app performs it.
+nonisolated struct EndChargeActivityIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "End Live Activity"
+    static var isDiscoverable: Bool { false }
+
+    func perform() async throws -> some IntentResult {
+        for activity in Activity<ChargeActivityAttributes>.activities {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+        return .result()
+    }
 }

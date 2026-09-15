@@ -95,7 +95,7 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(Color.mwMuted)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("The activity starts while a charger is connected and MiniWatts is in front. It refreshes while MiniWatts runs and marks the reading paused once the app is suspended; unplugging leaves the final state visible for two minutes.")
+                Text("The activity starts while a charger is connected and MiniWatts is in front, refreshes while MiniWatts runs, and marks the reading paused once the app is suspended. Unplug with MiniWatts running and it ends two minutes later; unplug while it is suspended and it stays until MiniWatts runs again. Tap End on the activity to close it at any time.")
                     .font(.caption)
                     .foregroundStyle(Color.mwMuted)
                     .fixedSize(horizontal: false, vertical: true)

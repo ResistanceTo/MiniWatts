@@ -246,7 +246,17 @@ So `ChargeActivityController` starts an activity only while the app is in front;
 update at most every 5 s and at least every 20 s; gives each update a stale date 45 s out, so
 a suspended app's last reading is shown as paused rather than as current; ends the activity
 two minutes after unplugging, or at once if the setting is turned off; and adopts an activity
-left over from a killed run instead of starting a second one. `Activity` is not `Sendable`, so
+left over from a killed run instead of starting a second one. All of that needs the app to be
+running: unplug while it is suspended, or kill it, and the activity stays up — paused — until
+the app runs again. The End button on the activity is the way out: `EndChargeActivityIntent`
+is a `LiveActivityIntent`, which iOS performs in the app's process, waking it if needed. It
+lives in `ChargeActivityAttributes.swift` because the extension needs the type to draw the
+button and that file is already compiled into both targets. Checked on a device: ended with
+End while still charging, the activity does not come back when the app is next opened, and
+that is accepted as it is. Unplug while the app is suspended and the island greys out and the
+Lock Screen says paused, for as long as the app stays suspended; the next time it runs, the
+island clears at once and the Lock Screen keeps the final state for two more minutes — the
+rule for an ended activity with an `.after` dismissal. `Activity` is not `Sendable`, so
 tasks are handed the activity's id and look it up — holding the instance across a `Task` does
 not compile under Swift 6. `NSSupportsLiveActivities` is set through `INFOPLIST_KEY_*` on the
 app target, like every other Info.plist key.

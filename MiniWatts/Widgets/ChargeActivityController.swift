@@ -11,7 +11,8 @@ import Foundation
 ///   the app is suspended the Lock Screen marks the reading paused instead of passing
 ///   off an old number as live
 /// - it ends when the charger comes out — which, if that happens while the app is
-///   suspended, the app only learns on its next tick. The stale date covers the gap.
+///   suspended, the app only learns on its next tick. The stale date covers the gap,
+///   and the End button (`EndChargeActivityIntent`) lets the user close it meanwhile.
 final class ChargeActivityController {
     private var activity: Activity<ChargeActivityAttributes>?
     private var adopted = false

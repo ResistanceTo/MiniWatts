@@ -1,4 +1,5 @@
 import ActivityKit
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -215,6 +216,15 @@ struct ActivityFootnote: View {
             }
             Spacer(minLength: 6)
             Text("Since \(Text(context.attributes.startedAt, style: .time))")
+            // The one way to close the activity while MiniWatts is suspended or killed:
+            // iOS wakes the app to perform the intent.
+            Button(intent: EndChargeActivityIntent()) {
+                Label("End", systemImage: "xmark")
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(palette.track))
+            }
+            .buttonStyle(.plain)
         }
         .font(.system(size: 12, weight: .medium))
         .foregroundStyle(palette.muted)

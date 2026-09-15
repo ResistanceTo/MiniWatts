@@ -2365,12 +2365,22 @@
         }
       }
     },
-    "The activity starts while a charger is connected and MiniWatts is in front. It refreshes while MiniWatts runs and marks the reading paused once the app is suspended; unplugging leaves the final state visible for two minutes." : {
+    "The activity starts while a charger is connected and MiniWatts is in front, refreshes while MiniWatts runs, and marks the reading paused once the app is suspended. Unplug with MiniWatts running and it ends two minutes later; unplug while it is suspended and it stays until MiniWatts runs again. Tap End on the activity to close it at any time." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "连接充电器且 MiniWatts 位于前台时会启动实时活动。MiniWatts 运行期间会持续刷新；App 暂停后，读数会标记为已暂停。拔下充电器后，最终状态会保留两分钟。"
+            "value" : "连接充电器且 MiniWatts 位于前台时会启动实时活动，并在 MiniWatts 运行期间持续刷新；App 被暂停后，读数会标记为已暂停。在 MiniWatts 运行时拔下充电器，两分钟后自动结束；如果拔下时 App 已被暂停，它会一直保留，直到 MiniWatts 再次运行。随时可以点实时活动上的“结束”把它关掉。"
+          }
+        }
+      }
+    },
+    "End Live Activity" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结束实时活动"
           }
         }
       }
