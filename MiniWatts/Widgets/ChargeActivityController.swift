@@ -15,7 +15,7 @@ import Foundation
 final class ChargeActivityController {
     private var activity: Activity<ChargeActivityAttributes>?
     private var adopted = false
-    private var lastSent: ChargeReading?
+    private var lastSent: ChargeActivityContentState?
     private var lastSentAt: Date = .distantPast
     private var lastStartAttempt: Date = .distantPast
 
@@ -30,21 +30,25 @@ final class ChargeActivityController {
     /// wait this long before trying again rather than asking every second.
     private static let retryInterval: TimeInterval = 30
 
-    func sync(_ reading: ChargeReading, enabled: Bool, isForeground: Bool) {
+    func sync(_ snapshot: PowerSnapshot,
+              selectedMetric: LiveActivityMetric,
+              enabled: Bool,
+              isForeground: Bool) {
         adoptExistingActivities()
+        let state = Self.contentState(from: snapshot, selectedMetric: selectedMetric)
         guard enabled else {
-            end(with: reading, dismissal: .immediate)
+            end(with: state, dismissal: .immediate)
             return
         }
-        guard reading.externalConnected else {
+        guard state.reading.externalConnected else {
             // Leave the final state up briefly: "unplugged at 86 %" is worth a glance.
-            end(with: reading, dismissal: .after(reading.date.addingTimeInterval(120)))
+            end(with: state, dismissal: .after(state.date.addingTimeInterval(120)))
             return
         }
         if let activity, activity.activityState == .active || activity.activityState == .stale {
-            update(activity, with: reading)
+            update(activity, with: state)
         } else if isForeground {
-            start(with: reading)
+            start(with: state)
         }
     }
 
@@ -60,40 +64,43 @@ final class ChargeActivityController {
         }
     }
 
-    private func start(with reading: ChargeReading) {
-        guard reading.date.timeIntervalSince(lastStartAttempt) >= Self.retryInterval,
+    private func start(with state: ChargeActivityContentState) {
+        guard state.date.timeIntervalSince(lastStartAttempt) >= Self.retryInterval,
               ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-        lastStartAttempt = reading.date
+        lastStartAttempt = state.date
         do {
             activity = try Activity.request(
-                attributes: ChargeActivityAttributes(startedAt: reading.date, startPercent: reading.percent),
-                content: content(for: reading),
+                attributes: ChargeActivityAttributes(startedAt: state.date,
+                                                     startPercent: state.reading.percent),
+                content: content(for: state),
                 pushType: nil)
-            lastSent = reading
-            lastSentAt = reading.date
+            lastSent = state
+            lastSentAt = state.date
         } catch {
             // Refused: not frontmost after all, activities disabled, or the system
             // limit reached. Tried again after `retryInterval`.
         }
     }
 
-    private func update(_ activity: Activity<ChargeActivityAttributes>, with reading: ChargeReading) {
-        let elapsed = reading.date.timeIntervalSince(lastSentAt)
+    private func update(_ activity: Activity<ChargeActivityAttributes>,
+                        with state: ChargeActivityContentState) {
+        let elapsed = state.date.timeIntervalSince(lastSentAt)
         guard elapsed >= Self.minimumInterval else { return }
-        if elapsed < Self.maximumInterval, let lastSent, !Self.differs(lastSent, reading) { return }
-        lastSent = reading
-        lastSentAt = reading.date
-        let content = content(for: reading)
+        if elapsed < Self.maximumInterval, let lastSent, !Self.differs(lastSent, state) { return }
+        lastSent = state
+        lastSentAt = state.date
+        let content = content(for: state)
         let id = activity.id
         Task { await Self.update(id, content) }
     }
 
-    private func end(with reading: ChargeReading, dismissal: ActivityUIDismissalPolicy) {
+    private func end(with state: ChargeActivityContentState,
+                     dismissal: ActivityUIDismissalPolicy) {
         guard let activity else { return }
         self.activity = nil
         lastSent = nil
         lastSentAt = .distantPast
-        let final = ActivityContent(state: reading, staleDate: nil)
+        let final = ActivityContent(state: state, staleDate: nil)
         let id = activity.id
         Task { await Self.end(id, final, dismissal: dismissal) }
     }
@@ -106,13 +113,13 @@ final class ChargeActivityController {
 
     @concurrent
     nonisolated private static func update(_ id: String,
-                                           _ content: ActivityContent<ChargeReading>) async {
+                                           _ content: ActivityContent<ChargeActivityContentState>) async {
         await activity(id)?.update(content)
     }
 
     @concurrent
     nonisolated private static func end(_ id: String,
-                                        _ content: ActivityContent<ChargeReading>?,
+                                        _ content: ActivityContent<ChargeActivityContentState>?,
                                         dismissal: ActivityUIDismissalPolicy) async {
         await activity(id)?.end(content, dismissalPolicy: dismissal)
     }
@@ -121,18 +128,44 @@ final class ChargeActivityController {
         Activity<ChargeActivityAttributes>.activities.first { $0.id == id }
     }
 
-    private func content(for reading: ChargeReading) -> ActivityContent<ChargeReading> {
-        ActivityContent(state: reading, staleDate: reading.date.addingTimeInterval(Self.staleAfter))
+    private func content(
+        for state: ChargeActivityContentState
+    ) -> ActivityContent<ChargeActivityContentState> {
+        ActivityContent(state: state,
+                        staleDate: state.date.addingTimeInterval(Self.staleAfter))
     }
 
     /// Whether a reading has moved enough to be worth an update on its own.
-    private static func differs(_ old: ChargeReading, _ new: ChargeReading) -> Bool {
-        old.percent != new.percent
-            || old.source != new.source
-            || old.isCharging != new.isCharging
-            || old.isOnHold != new.isOnHold
-            || old.isFull != new.isFull
-            || abs((old.watts ?? -1) - (new.watts ?? -1)) >= 0.2
-            || abs((old.batteryTemperature ?? 0) - (new.batteryTemperature ?? 0)) >= 0.5
+    private static func differs(
+        _ old: ChargeActivityContentState,
+        _ new: ChargeActivityContentState
+    ) -> Bool {
+        let oldReading = old.reading
+        let newReading = new.reading
+        return old.selectedMetric != new.selectedMetric
+            || oldReading.percent != newReading.percent
+            || oldReading.source != newReading.source
+            || oldReading.isCharging != newReading.isCharging
+            || oldReading.isOnHold != newReading.isOnHold
+            || oldReading.isFull != newReading.isFull
+            || abs((oldReading.watts ?? -1) - (newReading.watts ?? -1)) >= 0.2
+            || abs((oldReading.batteryTemperature ?? 0)
+                   - (newReading.batteryTemperature ?? 0)) >= 0.5
+            || abs((old.socTemperature ?? 0) - (new.socTemperature ?? 0)) >= 0.5
+            || abs((old.hottestTemperature ?? 0) - (new.hottestTemperature ?? 0)) >= 0.5
+            || old.hottestSensorName != new.hottestSensorName
+    }
+
+    private static func contentState(
+        from snapshot: PowerSnapshot,
+        selectedMetric: LiveActivityMetric
+    ) -> ChargeActivityContentState {
+        ChargeActivityContentState(
+            reading: ChargeReading(snapshot),
+            socTemperature: snapshot.socTemperature,
+            hottestTemperature: snapshot.hottestSensor?.value,
+            hottestSensorName: snapshot.hottestSensor?.name,
+            selectedMetric: selectedMetric
+        )
     }
 }

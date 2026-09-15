@@ -16,6 +16,11 @@ struct WidgetPalette {
     let track: Color
     let canvasTop: Color
     let canvas: Color
+    let temperatureCold: Color
+    let temperatureCool: Color
+    let temperatureWarm: Color
+    let temperatureHot: Color
+    let temperatureVeryHot: Color
 
     init(_ scheme: ColorScheme) {
         let dark = scheme == .dark
@@ -27,6 +32,11 @@ struct WidgetPalette {
         track = Color(rgb: dark ? 0x8C93A6 : 0x60687A).opacity(0.2)
         canvasTop = Color(rgb: dark ? 0x0C1018 : 0xF7F9FC)
         canvas = Color(rgb: dark ? 0x06070A : 0xEEF1F6)
+        temperatureCold = Color(rgb: dark ? 0x4DA3FF : 0x2C7BE5)
+        temperatureCool = Color(rgb: dark ? 0x3FE08C : 0x0E9B57)
+        temperatureWarm = Color(rgb: dark ? 0xF2D14B : 0xB08900)
+        temperatureHot = Color(rgb: dark ? 0xFFA340 : 0xB86A00)
+        temperatureVeryHot = Color(rgb: dark ? 0xFF6058 : 0xC5342B)
     }
 
     /// The same rule as the app's dial: cyan from a cable, violet from a coil, amber
@@ -35,6 +45,30 @@ struct WidgetPalette {
         guard let reading else { return muted }
         guard reading.externalConnected else { return loss }
         return reading.isWireless ? wireless : accent
+    }
+
+    func temperatureTint(_ celsius: Double?) -> Color {
+        guard let celsius else { return muted }
+        switch celsius {
+        case ..<28: return temperatureCold
+        case ..<34: return temperatureCool
+        case ..<39: return temperatureWarm
+        case ..<44: return temperatureHot
+        default: return temperatureVeryHot
+        }
+    }
+
+    func tint(for state: ChargeActivityContentState) -> Color {
+        switch state.selectedMetric {
+        case .chargingPower:
+            return tint(for: state.reading)
+        case .socTemperature:
+            return temperatureTint(state.socTemperature)
+        case .batteryTemperature:
+            return temperatureTint(state.batteryTemperature)
+        case .hottestTemperature:
+            return temperatureTint(state.hottestTemperature)
+        }
     }
 }
 

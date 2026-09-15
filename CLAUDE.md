@@ -251,6 +251,14 @@ tasks are handed the activity's id and look it up — holding the instance acros
 not compile under Swift 6. `NSSupportsLiveActivities` is set through `INFOPLIST_KEY_*` on the
 app target, like every other Info.plist key.
 
+Its compact presentation can show charging power, SoC temperature, battery temperature or
+the hottest sensor, selected in Settings. The expanded and Lock Screen presentations show
+that reading large with a caption, the other three on one line beneath it, the charge level
+bar and the status / "Since …" footnote. **Height is the constraint:** the Lock Screen gives
+an activity about 160 pt, and a first version that stacked each reading as icon, label and
+value three lines high came to about 195 pt — the system clipped its top and bottom, ate the
+padding, and shrank each cell's text by a different factor.
+
 **The widget has its own palette and its own string catalog.** It does not compile
 `Theme.swift`: `Color.mw` wraps a trait-resolution closure, and a widget is archived and drawn
 by the system, so `WidgetPalette` resolves the same hex values against `colorScheme` itself.

@@ -52,6 +52,15 @@ final class PowerMonitor {
         didSet { UserDefaults.standard.set(showsLiveActivityWhileCharging, forKey: Self.liveActivityKey) }
     }
 
+    /// The reading used by the compact Dynamic Island presentation. This changes
+    /// presentation only; the activity remains charger-bound.
+    var liveActivityMetric: LiveActivityMetric {
+        didSet {
+            UserDefaults.standard.set(liveActivityMetric.rawValue,
+                                      forKey: Self.liveActivityMetricKey)
+        }
+    }
+
     let thermal = ThermalMonitor()
 
     /// Called at the end of every tick. `RootView` installs it and fans the reading
@@ -86,6 +95,7 @@ final class PowerMonitor {
     private static let wattHoursKey = "batteryWattHours"
     private static let keepAwakeKey = "keepScreenAwakeWhileCharging"
     private static let liveActivityKey = "showsLiveActivityWhileCharging"
+    private static let liveActivityMetricKey = "liveActivityMetric"
     private static let liveWindow = 180
 
     private let battery = IOKitBattery()
@@ -118,6 +128,8 @@ final class PowerMonitor {
         // and it cannot happen if the screen locks after thirty seconds.
         keepScreenAwakeWhileCharging = defaults.object(forKey: Self.keepAwakeKey) as? Bool ?? true
         showsLiveActivityWhileCharging = defaults.object(forKey: Self.liveActivityKey) as? Bool ?? true
+        liveActivityMetric = defaults.string(forKey: Self.liveActivityMetricKey)
+            .flatMap(LiveActivityMetric.init(rawValue:)) ?? .chargingPower
         collectDiagnostics()
         Task { await loadStoredSessions() }
     }

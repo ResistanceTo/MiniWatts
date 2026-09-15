@@ -2344,6 +2344,36 @@
           }
         }
       }
+    },
+    "Primary readout" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主要读数"
+          }
+        }
+      }
+    },
+    "The compact Dynamic Island shows this reading. Press and hold it to see power, SoC, battery and hottest-component temperatures together." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "灵动岛紧凑状态显示此项读数。长按展开后可同时查看功率、SoC、电池和最高部件温度。"
+          }
+        }
+      }
+    },
+    "The activity starts while a charger is connected and MiniWatts is in front. It refreshes while MiniWatts runs and marks the reading paused once the app is suspended; unplugging leaves the final state visible for two minutes." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接充电器且 MiniWatts 位于前台时会启动实时活动。MiniWatts 运行期间会持续刷新；App 暂停后，读数会标记为已暂停。拔下充电器后，最终状态会保留两分钟。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

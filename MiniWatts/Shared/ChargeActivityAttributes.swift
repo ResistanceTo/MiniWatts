@@ -1,6 +1,29 @@
 import ActivityKit
 import Foundation
 
+nonisolated enum LiveActivityMetric: String, Codable, Hashable, CaseIterable, Identifiable {
+    case chargingPower
+    case socTemperature
+    case batteryTemperature
+    case hottestTemperature
+
+    var id: Self { self }
+}
+
+/// The existing charge reading plus the extra temperatures needed by the expanded
+/// activity. Keeping the `ChargeReading` intact preserves the widget wording and
+/// charger-bound lifecycle while allowing the compact presentation to be selected.
+nonisolated struct ChargeActivityContentState: Codable, Hashable {
+    var reading: ChargeReading
+    var socTemperature: Double?
+    var hottestTemperature: Double?
+    var hottestSensorName: String?
+    var selectedMetric: LiveActivityMetric
+
+    var date: Date { reading.date }
+    var batteryTemperature: Double? { reading.batteryTemperature }
+}
+
 /// The live activity shown on the Lock Screen, in the Dynamic Island and in StandBy
 /// while a charger is connected.
 ///
@@ -14,7 +37,7 @@ import Foundation
 /// extension says the reading is out of date rather than showing an old number as
 /// if it were current.
 nonisolated struct ChargeActivityAttributes: ActivityAttributes {
-    typealias ContentState = ChargeReading
+    typealias ContentState = ChargeActivityContentState
 
     /// When the charger was connected.
     var startedAt: Date

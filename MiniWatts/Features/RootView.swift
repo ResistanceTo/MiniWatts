@@ -40,7 +40,8 @@ struct RootView: View {
                 let reading = ChargeReading(snapshot)
                 floatingMeter.render(snapshot: snapshot,
                                      thermalState: monitor.thermal.state)
-                liveActivity.sync(reading,
+                liveActivity.sync(snapshot,
+                                  selectedMetric: monitor.liveActivityMetric,
                                   enabled: monitor.showsLiveActivityWhileCharging,
                                   isForeground: UIApplication.shared.applicationState == .active)
                 widgets.publish(reading, lastSession: monitor.sessions.first)

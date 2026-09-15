@@ -14,7 +14,8 @@ struct SettingsView: View {
                 ScrollView {
                     VStack(spacing: 14) {
                         recordingPanel(keepAwake: $monitor.keepScreenAwakeWhileCharging)
-                        glancesPanel(liveActivity: $monitor.showsLiveActivityWhileCharging)
+                        glancesPanel(liveActivity: $monitor.showsLiveActivityWhileCharging,
+                                     metric: $monitor.liveActivityMetric)
                         floatingPanel(showPower: $floatingMeter.showPower,
                                       showTemperatures: $floatingMeter.showTemperatures,
                                       layout: $floatingMeter.layout,
@@ -66,7 +67,8 @@ struct SettingsView: View {
         }
     }
 
-    private func glancesPanel(liveActivity: Binding<Bool>) -> some View {
+    private func glancesPanel(liveActivity: Binding<Bool>,
+                              metric: Binding<LiveActivityMetric>) -> some View {
         Panel("Lock Screen and widgets", systemImage: "rectangle.on.rectangle") {
             VStack(alignment: .leading, spacing: 12) {
                 Toggle(isOn: liveActivity) {
@@ -74,7 +76,26 @@ struct SettingsView: View {
                         .font(.system(size: 14, weight: .medium))
                 }
                 .tint(.mwAccent)
-                Text("Shows charge power on the Lock Screen, in the Dynamic Island and in StandBy. It updates only while MiniWatts is running; once the app is suspended the reading is marked as paused rather than shown as current.")
+
+                HStack {
+                    Text("Primary readout")
+                        .font(.subheadline)
+                    Spacer()
+                    Picker("Primary readout", selection: metric) {
+                        Text("Charging power").tag(LiveActivityMetric.chargingPower)
+                        Text("SoC temperature").tag(LiveActivityMetric.socTemperature)
+                        Text("Battery temperature").tag(LiveActivityMetric.batteryTemperature)
+                        Text("Hottest component").tag(LiveActivityMetric.hottestTemperature)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                }
+
+                Text("The compact Dynamic Island shows this reading. Press and hold it to see power, SoC, battery and hottest-component temperatures together.")
+                    .font(.caption)
+                    .foregroundStyle(Color.mwMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("The activity starts while a charger is connected and MiniWatts is in front. It refreshes while MiniWatts runs and marks the reading paused once the app is suspended; unplugging leaves the final state visible for two minutes.")
                     .font(.caption)
                     .foregroundStyle(Color.mwMuted)
                     .fixedSize(horizontal: false, vertical: true)
