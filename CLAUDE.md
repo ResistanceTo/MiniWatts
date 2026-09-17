@@ -46,8 +46,12 @@ by several entries.
   estimate, which is derived across several snapshots and so is not a snapshot's to give.
 - `Design/` — palette (`Color.mw(light:dark:)`, no asset catalog entries), `Panel`/
   `Metric`/`Pill`/`BarRow`, `PowerRing`, Swift Charts wrappers, `PhoneHeatMap`.
-- `Features/` — one folder per tab, plus Settings. `DebugView` (Raw data) is
-  `#if DEBUG` only and reached from the bottom of Settings, not the main toolbar.
+- `Features/` — one folder per tab, plus Settings. `DebugView` (Raw data) is reached
+  from the bottom of Settings, not the main toolbar. It ships in release builds: its
+  probes answer questions only hardware this project does not have can answer, and
+  those answers arrive as dumps from people running the release. Nothing it reads may
+  be gated on `#if DEBUG` — `PowerMonitor.powerSources` was, and its panel reported no
+  power sources in every release build.
 - `Shared/` — the four files compiled into both targets: `ChargeReading`,
   `ChargeActivityAttributes`, `WidgetSnapshot`, `ReadingWording`. `Widgets/` — the app
   side of the widget and the live activity (`WidgetPublisher`, `ChargeActivityController`),

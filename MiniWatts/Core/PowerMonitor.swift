@@ -200,11 +200,13 @@ final class PowerMonitor {
 
         let registry = battery?.readRegistryProperties() ?? [:]
         let sources = battery?.readPowerSources() ?? []
-        #if DEBUG
-        // Only the Raw data screen reads this, and that screen is Debug-only, so a
-        // Release build was republishing the whole array once a second for nobody.
+        // Only Raw data reads this. It used to be assigned under `#if DEBUG`, when that
+        // screen was Debug-only; now that the page ships, the guard made its "powerd
+        // power sources" panel report none in every release build — a false statement
+        // on the one page whose job is to show what the probes actually returned. The
+        // write costs nothing while that page is closed: `@Observable` invalidates only
+        // views that read the property, and no other view does.
         powerSources = sources
-        #endif
         let internalBattery = sources.first { ($0["Type"] as? String) == "InternalBattery" } ?? sources.first
 
         let current = PowerSnapshot(date: .now,
