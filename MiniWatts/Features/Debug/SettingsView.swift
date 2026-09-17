@@ -23,9 +23,7 @@ struct SettingsView: View {
                         capacityPanel(capacity: $monitor.configuredBatteryWattHours)
                         devicePanel
                         aboutPanel
-                        #if DEBUG
                         rawDataLink
-                        #endif
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 24)
@@ -255,10 +253,12 @@ struct SettingsView: View {
         }
     }
 
-    #if DEBUG
-    /// Debug builds only, so it is absent from the distributed ipa: the raw dump
-    /// is a development tool and nobody should have to explain it to a user. It
-    /// stays reachable the way it is actually used — attached to Xcode.
+    /// In the distributed ipa too, not just Debug builds. It used to be `#if DEBUG`
+    /// on the grounds that a raw dump is a development tool — but the probes it runs
+    /// answer questions that can only be answered on hardware this project does not
+    /// have, and every one of those answers has arrived as a dump pasted by someone
+    /// running the release build. Kept at the bottom of Settings, behind a link that
+    /// says what it is, so nobody meets it by accident.
     private var rawDataLink: some View {
         NavigationLink {
             DebugView()
@@ -285,7 +285,6 @@ struct SettingsView: View {
         }
         .buttonStyle(.plain)
     }
-    #endif
 
     /// Where the source lives. Kept as a constant rather than built inline: a typo in
     /// a string literal would only show up as a force-unwrap crash on this screen.

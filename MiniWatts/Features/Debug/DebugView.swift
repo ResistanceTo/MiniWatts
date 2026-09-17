@@ -1,4 +1,3 @@
-#if DEBUG
 import SwiftUI
 import UIKit
 
@@ -8,6 +7,7 @@ import UIKit
 struct DebugView: View {
     @Environment(PowerMonitor.self) private var monitor
     @State private var inventory: [HIDSensors.ServiceInfo] = []
+    @State private var accessory: AccessoryProbe.Report?
     @State private var copied = false
     @State private var query = ""
 
@@ -27,6 +27,7 @@ struct DebugView: View {
                     diagnosticsPanel
                     sensorsPanel
                     inventoryPanel
+                    accessoryPanel
                     dictionaryPanel("IOPMPowerSource", systemImage: "cpu", dictionary: monitor.snapshot.registry)
                     dictionaryPanel("powerd power source", systemImage: "battery.100", dictionary: monitor.snapshot.powerSource)
                     dictionaryPanel("Adapter details", systemImage: "powerplug", dictionary: monitor.snapshot.adapterDetails)
@@ -119,6 +120,76 @@ struct DebugView: View {
         }
     }
 
+    /// The accessory-manager scan. This is the panel that decides whether MiniWatts
+    /// can ever say anything about the charger's own identity or the cable, so the
+    /// rows that came back empty are shown as well as the ones that answered: a key
+    /// that is absent everywhere is the finding.
+    private var accessoryPanel: some View {
+        Panel("Accessory manager", systemImage: "cable.connector",
+              trailing: accessory.map { Text(verbatim: $0.headline) }) {
+            VStack(alignment: .leading, spacing: 10) {
+                if let accessory {
+                    Text(verbatim: accessory.library).mwMono(size: 11).foregroundStyle(Color.mwMuted)
+                    ForEach(accessory.classes) { reading in
+                        accessoryClass(reading)
+                    }
+                } else {
+                    Button {
+                        accessory = monitor.accessoryProbe()
+                    } label: {
+                        Label("Probe the accessory registry", systemImage: "magnifyingglass")
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .tint(.mwAccent)
+                    EmptyNote(text: "Reads the IOAccessoryManager registry family — the charger's connect type, current limit, manufacturer, model and serial — plus the USB-PD nodes macOS publishes for the cable. Registry reads only: nothing is opened and nothing is written.")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func accessoryClass(_ reading: AccessoryProbe.ClassReading) -> some View {
+        let status = reading.matchError ?? (reading.services.isEmpty ? "no service" : "\(reading.services.count)")
+        if matches(reading.className, status) || reading.services.contains(where: { service in
+            service.readableKeys.contains { matches($0.key, $0.value ?? "") }
+        }) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text(verbatim: reading.className).mwMono(size: 11).lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text(verbatim: status).mwMono(size: 10).foregroundStyle(Color.mwMuted)
+                }
+                .padding(.vertical, 2)
+                ForEach(reading.services) { service in
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(verbatim: "\(service.className) · \(service.name)")
+                            .mwMono(size: 10)
+                            .foregroundStyle(Color.mwMuted)
+                            .padding(.leading, 10)
+                        // The targeted reads first: these are the keys the question
+                        // is actually about. Then whatever the bulk fetch returned
+                        // that they did not already cover.
+                        ForEach(service.readableKeys.filter { matches($0.key, $0.value ?? "") }) { key in
+                            DetailRow(rawLabel: key.key, value: key.value)
+                        }
+                        let extra = service.bulk.keys.sorted()
+                            .filter { key in !service.readableKeys.contains { $0.key == key } }
+                            .filter { matches($0, service.bulk[$0] ?? "") }
+                        ForEach(extra, id: \.self) { key in
+                            DetailRow(rawLabel: key, value: service.bulk[key])
+                        }
+                        if let bulkError = service.bulkError {
+                            DetailRow(rawLabel: "bulk fetch", value: bulkError)
+                        }
+                        if service.readableKeys.isEmpty, service.bulk.isEmpty {
+                            EmptyNote(text: "Matched, but every key came back empty.")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private func dictionaryPanel(_ title: LocalizedStringResource, systemImage: String, dictionary: [String: Any]?) -> some View {
         Panel(title, systemImage: systemImage, trailing: dictionary.map { Text("\($0.count) keys") }) {
             if let dictionary, !dictionary.isEmpty {
@@ -189,6 +260,32 @@ struct DebugView: View {
             lines.append("\n# HID inventory")
             lines.append(contentsOf: inventory.map { String(format: "%@  0x%04x / %d", $0.name, $0.usagePage, $0.usage) })
         }
+        if accessory == nil {
+            // A silently absent section reads like a probe that found nothing, which
+            // is the opposite of what it means. Say so instead: the scan is behind a
+            // button and a dump taken before it was pressed carries no accessory data.
+            lines.append("\n# Accessory manager — not run (press Probe the accessory registry, then copy again)")
+        }
+        if let accessory {
+            // Deliberately exhaustive, unlike the panel: a key that returned nothing
+            // is the result being reported, so the dump has to carry the misses too
+            // or it cannot be read as evidence later.
+            lines.append("\n# Accessory manager — \(accessory.headline)")
+            lines.append(accessory.library)
+            lines.append(contentsOf: accessory.symbols.keys.sorted().map {
+                "dlsym \($0) = \(accessory.symbols[$0] == true ? "present" : "missing")"
+            })
+            for reading in accessory.classes {
+                let status = reading.matchError ?? (reading.services.isEmpty ? "no service" : "\(reading.services.count) services")
+                lines.append("\n## \(reading.className) — \(status)")
+                for service in reading.services {
+                    lines.append("### [\(service.index)] \(service.className) · \(service.name)")
+                    if let bulkError = service.bulkError { lines.append("bulk fetch = \(bulkError)") }
+                    lines.append(contentsOf: service.bulk.keys.sorted().map { "bulk \($0) = \(service.bulk[$0]!)" })
+                    lines.append(contentsOf: service.keys.map { "key \($0.key) = \($0.value ?? "—")" })
+                }
+            }
+        }
         func dump(_ title: String, _ dictionary: [String: Any]?) {
             guard let dictionary, !dictionary.isEmpty else { return }
             lines.append("\n# \(title)")
@@ -205,4 +302,4 @@ struct DebugView: View {
         return lines.joined(separator: "\n")
     }
 }
-#endif
+
