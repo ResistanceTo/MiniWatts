@@ -156,6 +156,7 @@ struct SessionDetailView: View {
                     energyPanel
                     powerPanel
                     climatePanel
+                    cablePanel
                     detailsPanel
                 }
                 .padding(.horizontal, 16)
@@ -255,6 +256,65 @@ struct SessionDetailView: View {
         }
     }
 
+    /// Same charger, different cable — the comparison the path resistance exists for.
+    ///
+    /// A single figure is hard to judge, because it carries the charger's own
+    /// regulation and both sets of contacts as well as the cable. Two sessions on the
+    /// same charger differ only in what was plugged between them, so the gap between
+    /// rows is the part a user can do something about. Hidden entirely until there
+    /// are at least two, since one row is not a comparison.
+    @ViewBuilder
+    private var cablePanel: some View {
+        let fits = monitor.pathFitsSharingAdapter(with: session)
+        if !fits.isEmpty {
+            Panel("Cable comparison", systemImage: "cable.connector.horizontal",
+                  trailing: Text("\(fits.count) sessions")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(fits) { fit in
+                        let isThis = fit.id == session.id
+                        HStack(spacing: 10) {
+                            Image(systemName: isThis ? "largecircle.fill.circle" : "circle")
+                                .font(.system(size: 12))
+                                .foregroundStyle(isThis ? Color.mwAccent : Color.mwMuted.opacity(0.5))
+                            Text(verbatim: Formatting.timestamp(fit.start))
+                                .mwMono(size: 12, weight: isThis ? .semibold : .regular)
+                            Spacer(minLength: 8)
+                            Text(verbatim: String(format: "%.0f mΩ", fit.pathMilliohms ?? 0))
+                                .mwReadout(size: 14, weight: .semibold)
+                                .foregroundStyle(isThis ? Color.mwAccent : Color.mwMuted)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(isThis ? Color.mwAccent.opacity(0.12) : Color.mwMuted.opacity(0.06))
+                        )
+                    }
+                    if let note = comparisonNote(fits) {
+                        Text(note)
+                            .font(.caption)
+                            .foregroundStyle(Color.mwMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Where this session landed among the others on the same charger. Only the two
+    /// ends are worth a sentence — being the best says the connection is as good as
+    /// this charger has seen, and being worse than the best says by how much.
+    private func comparisonNote(_ fits: [ChargeSession]) -> LocalizedStringResource? {
+        guard let best = fits.first?.pathMilliohms,
+              let mine = fits.first(where: { $0.id == session.id })?.pathMilliohms else { return nil }
+        let excess = mine - best
+        guard excess >= 25 else {
+            return "The lowest path resistance recorded on this charger. Whatever was plugged in here is as good as it has seen."
+        }
+        let gap = String(format: "%.0f mΩ", excess)
+        return "\(gap) above the best this charger has recorded. Same charger, so that difference is the cable and the plugs — not the adapter."
+    }
+
     private var detailsPanel: some View {
         Panel("Details", systemImage: "list.bullet") {
             VStack(spacing: 0) {
@@ -266,6 +326,8 @@ struct SessionDetailView: View {
                 DetailRow(label: "Peak into cell", value: String(format: "%.2f W", session.peakBatteryWatts))
                 DetailRow(label: "Peak cell temp", value: session.peakBatteryTemperature.map { String(format: "%.1f °C", $0) })
                 DetailRow(label: "Average in", value: session.totals.averageInputWatts.map { String(format: "%.2f W", $0) })
+                DetailRow(label: "Path resistance",
+                          value: session.pathMilliohms.map { String(format: "%.0f mΩ", $0) })
                 DetailRow(label: "Throttled", value: Formatting.duration(session.throttledSeconds))
                 DetailRow(label: "Samples", value: "\(session.samples.count)")
                 DetailRow(label: "Transport", value: DetailRow.transportName(wireless: session.isWireless))

@@ -25,6 +25,10 @@ final class PowerMonitor {
     /// Watts estimated from how fast the percentage moves. The only way to see
     /// discharge power: no discharge-current sensor is exposed to a sandboxed app.
     private(set) var rateEstimateWatts: Double?
+    /// Resistance of the whole charging path — charger, cable, both plugs — inferred
+    /// from how the port voltage sags as the current rises. Nil until the current
+    /// has moved far enough for the fit to mean anything. See `PathResistanceMeter`.
+    private(set) var pathResistance: PathResistanceEstimate?
     private(set) var diagnostics: [String] = []
     /// Every power source powerd reports, not just the internal battery.
     ///
@@ -102,6 +106,7 @@ final class PowerMonitor {
     private let sensors = HIDSensors()
     private let batteryCenter = BatteryCenterBridge()
     private let energy = EnergyAccumulator()
+    private let resistance = PathResistanceMeter()
     private let store = SessionStore()
 
     private var task: Task<Void, Never>?
@@ -221,6 +226,8 @@ final class PowerMonitor {
 
         appendLive(current)
         updateRateEstimate(current)
+        resistance.add(current)
+        pathResistance = resistance.estimate
         updateSession(current)
         lastExternalConnected = current.externalConnected
         onTick?(current)
@@ -283,6 +290,10 @@ final class PowerMonitor {
         if session.adapterName == nil { session.adapterName = snapshot.adapterName }
         if session.adapterRatedWatts == nil { session.adapterRatedWatts = snapshot.adapterRatedWatts }
         if thermal.state.isThrottling { session.throttledSeconds += 1 }
+        // Carried on every tick rather than at close: the fit is what History uses to
+        // compare one cable with another, and a session that ends while the app is
+        // suspended is closed from `lastConnectedObservation` without another reading.
+        session.recordPathFit(resistance.estimate)
 
         if snapshot.date.timeIntervalSince(lastSampleWrite) >= SessionStore.sampleInterval {
             lastSampleWrite = snapshot.date
@@ -337,6 +348,31 @@ final class PowerMonitor {
     func deleteSession(_ session: ChargeSession) {
         sessions.removeAll { $0.id == session.id }
         persist()
+    }
+
+    /// Every recorded session on the same adapter that produced a path-resistance
+    /// fit, including this one, lowest resistance first.
+    ///
+    /// This is the comparison the number is actually for. A path resistance on its
+    /// own is hard to judge — it carries the charger's regulation and both sets of
+    /// contacts as well as the cable — but the same charger measured through two
+    /// cables differs only by the cable and the plugs, so the difference between two
+    /// rows here is the thing a user can act on.
+    ///
+    /// Matched on the adapter's own name, which is hardware and is compared verbatim.
+    /// Wireless sessions are excluded: there is no cable in them to compare.
+    func pathFitsSharingAdapter(with session: ChargeSession) -> [ChargeSession] {
+        // This session has to be in the comparison for the comparison to be about it.
+        // Without a fit of its own it would be a list of other sessions under a
+        // heading that claims to say something about this one.
+        guard let adapter = session.adapterName, !session.isWireless,
+              session.pathMilliohms != nil else { return [] }
+        let matching = sessions.filter {
+            $0.adapterName == adapter && !$0.isWireless && $0.pathMilliohms != nil
+        }
+        // One row is not a comparison; it is the same number again.
+        guard matching.count > 1 else { return [] }
+        return matching.sorted { ($0.pathMilliohms ?? 0) < ($1.pathMilliohms ?? 0) }
     }
 
     func deleteAllSessions() {
@@ -430,6 +466,13 @@ final class PowerMonitor {
     /// Every HID service in the system, for the debug view.
     func hidInventory() -> [HIDSensors.ServiceInfo] {
         sensors?.fullInventory() ?? []
+    }
+
+    /// What the accessory-manager registry family will admit to, for the debug view.
+    /// Built on demand rather than held: it is a one-shot scan behind a button, and
+    /// nothing outside Raw data reads it. See `AccessoryProbe` for what it asks and why.
+    func accessoryProbe() -> AccessoryProbe.Report? {
+        AccessoryProbe()?.run()
     }
 
     private static let machineIdentifier: String = {

@@ -4,6 +4,246 @@
     "" : {
       "shouldTranslate" : false
     },
+    "%@ above the best this charger has recorded. Same charger, so that difference is the cable and the plugs — not the adapter." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "比该充电器的最好记录高 %@。充电器相同，所以这个差值来自线缆和插头，不是适配器。"
+          }
+        }
+      }
+    },
+    "%@ at the port" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "端口实测 %@"
+          }
+        }
+      }
+    },
+    "%lld sessions" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 次充电"
+          }
+        }
+      }
+    },
+    "at the current draw" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按当前取电"
+          }
+        }
+      }
+    },
+    "Cable and connection" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "线缆与连接"
+          }
+        }
+      }
+    },
+    "Cable comparison" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "线缆对比"
+          }
+        }
+      }
+    },
+    "Either way this is the whole path — the charger's own regulation, the cable and both plugs — not the cable alone, so it reads best as a comparison between cables on the same charger." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "两种算法给出的都是整条通路——充电器自身的稳压、线缆和两端插头——而不是线缆本身，所以它最适合用来在同一个充电器上横向比较不同的线。"
+          }
+        }
+      }
+    },
+    "Fitted over %@ of current swing, with %@ of it on the line." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 %@ 的电流变化范围内拟合，其中 %@ 落在这条直线上。"
+          }
+        }
+      }
+    },
+    "fitted over the whole contract" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在整段合约上拟合"
+          }
+        }
+      }
+    },
+    "from one sample" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单次采样"
+          }
+        }
+      }
+    },
+    "From one sample, against the negotiated %@. That figure is a ceiling rather than a measurement, so read this as an order of magnitude. Once the current moves — the taper past 80%, thermal throttling, the phone's own load — it is replaced by a fit that needs no reference at all." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单次采样，以协商出的 %@ 为参考。那个值是天花板而不是测量值，所以只能当数量级看。一旦电流动起来——80% 之后的涓流、热降频、手机自身的负载——它就会被一个完全不需要参考值的拟合结果取代。"
+          }
+        }
+      }
+    },
+    "High for a charging path. A thinner or longer cable, a worn plug or a loose fit all look like this. Trying another cable on the same charger is the way to tell which." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "对充电通路来说偏高。线更细、更长，插头磨损，或接触松动，看起来都是这样。在同一个充电器上换一根线，才能分清是哪一种。"
+          }
+        }
+      }
+    },
+    "Lost in the path" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通路损耗"
+          }
+        }
+      }
+    },
+    "Low. Nothing in this connection is holding the charge back." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "低。这条连接没有拖慢充电。"
+          }
+        }
+      }
+    },
+    "of the current on offer" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "占可用电流"
+          }
+        }
+      }
+    },
+    "Ordinary for a long or thin cable. It costs a little power as heat, and at these currents it is unlikely to change how fast the phone charges." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "对较长或较细的线缆来说很常见。会有少量功率变成热，在这样的电流下不太会影响充电速度。"
+          }
+        }
+      }
+    },
+    "Path resistance" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通路电阻"
+          }
+        }
+      }
+    },
+    "Taking" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取电比例"
+          }
+        }
+      }
+    },
+    "The lowest path resistance recorded on this charger. Whatever was plugged in here is as good as it has seen." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这是该充电器上记录到的最低通路电阻。这次用的线和插法，已经是它见过最好的。"
+          }
+        }
+      }
+    },
+    "The rail is collapsing under load. The phone is taking well under what the charger offered, and the voltage at the port is far below what was negotiated — the current is being held down to stop it falling further. Try another cable on this charger: if the drop shrinks, it was the cable." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "供电轨在负载下塌陷。手机取的电远低于充电器给出的额度，端口电压也远低于协商值——电流正被压着，以免电压继续往下掉。在这个充电器上换一根线试试：压降变小，就是线的问题。"
+          }
+        }
+      }
+    },
+    "The voltage at the port has collapsed well below what was negotiated, and the phone is holding the current down to keep it up. That is the cable or the plugs, not the charger." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "端口电压已经塌到远低于协商值，手机正压着电流以维持电压。问题出在线缆或插头，不在充电器。"
+          }
+        }
+      }
+    },
+    "Voltage drop" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "电压损失"
+          }
+        }
+      }
+    },
+    "Waiting for the phone to draw enough to measure a drop. Below about 150 mA there is nothing to divide." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待手机取电到足以测出压降。低于约 150 mA 就没有可除的东西了。"
+          }
+        }
+      }
+    },
+    "Wireless charging has no cable and no input-current sensor, so there is nothing to measure." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无线充电没有线缆，也没有输入电流传感器，无从测量。"
+          }
+        }
+      }
+    },
     "—" : {
       "shouldTranslate" : false
     },

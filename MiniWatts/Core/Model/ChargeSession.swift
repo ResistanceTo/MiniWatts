@@ -32,6 +32,17 @@ nonisolated struct ChargeSession: Codable, Identifiable, Hashable {
     var isWireless: Bool
     /// Seconds spent with the system thermally throttling.
     var throttledSeconds: TimeInterval
+    /// Best path-resistance fit made during the session, milliohms — the charger's
+    /// regulation, the cable and both plugs together. See `PathResistanceMeter`.
+    ///
+    /// Optional, and often nil: wireless sessions have no cable to measure, and a
+    /// session whose current never moved never produced a fit. Optional also keeps
+    /// the file backward compatible — `decodeIfPresent` reads a history written
+    /// before this existed.
+    var pathMilliohms: Double?
+    /// How many samples that fit rested on, so a thin fit is not read as equal to a
+    /// solid one when two sessions are compared.
+    var pathSamples: Int?
 
     var isOpen: Bool { end == nil }
     var duration: TimeInterval { (end ?? .now).timeIntervalSince(start) }
@@ -65,6 +76,21 @@ nonisolated struct ChargeSession: Codable, Identifiable, Hashable {
         self.adapterRatedWatts = adapterRatedWatts
         self.isWireless = isWireless
         self.throttledSeconds = 0
+        self.pathMilliohms = nil
+        self.pathSamples = nil
+    }
+
+    /// Takes the fit if it rests on at least as much as whatever is already stored.
+    ///
+    /// A session outlives a renegotiation, and the meter resets on one: a 5 V stretch
+    /// and a 9 V stretch each produce their own fit of the same physical path. The
+    /// later fit starts from nothing, so replacing unconditionally would trade a fit
+    /// made over an hour for one made over ten seconds. The better-supported one wins,
+    /// whichever came first.
+    mutating func recordPathFit(_ estimate: PathResistanceEstimate?) {
+        guard let estimate, estimate.sampleCount >= (pathSamples ?? 0) else { return }
+        pathMilliohms = estimate.milliohms
+        pathSamples = estimate.sampleCount
     }
 }
 

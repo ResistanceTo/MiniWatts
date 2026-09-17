@@ -137,6 +137,46 @@ Watch for: `String(format:)` still hardcodes the decimal separator, and
 `kIOReturnNotPrivileged`); PowerUI XPC (Optimized Charging, charge limit); powerd
 `Time to Empty` (always 0).
 
+**Nothing about the charger's identity, and nothing about the cable.** Raw data has
+a probe button for this (`AccessoryProbe`); re-run it on a new iOS rather than
+deriving any of it again. On iOS 27 / iPhone18,4:
+
+- **The registry nodes are all there.** `IOServiceMatching("IOAccessoryManager")`
+  matches `IOAccessoryDock0PinBuiltin · Port-MagSafe` and
+  `AppleHPMInterfaceType15 · Port-USB-C`; `IOAccessoryPort` matches
+  `IOAccessoryPortUSB`; `IOPortTransportStateCC · CC` and
+  `IOPortTransportComponentCCUSBPDSOP · SOP` both exist. This is the same driver
+  family WhatCable reads on macOS, under slightly different type numbers.
+- **Every property is filtered away.** `IORegistryEntryCreateCFProperties`
+  *succeeds* — no `kIOReturn` at all — and returns `IOClass` alone on the three
+  `IOAccessory*` nodes and an empty dictionary on the two transport nodes. All 39
+  targeted per-key reads on all five services returned nothing: the whole
+  `IOAccessoryUSB*` family (connect type, charging voltage, current limit),
+  `IOAccessoryAccessoryManufacturer`/`Name`/`ModelNumber`/`SerialNumber`, the power
+  modes, `IOAccessoryDigitalID`, and `Metadata` / `Vendor ID (SOP1)` /
+  `Product ID (SOP1)` on the transport nodes.
+- **`libIOAccessoryManager.dylib` loads and still exports all sixteen getters**, and
+  they are useless anyway. Disassembling it shows they are built on exactly the two
+  calls above: `IOAccessoryManagerGetUSBChargingVoltage` is one
+  `IORegistryEntryCreateCFProperty("IOAccessoryUSBChargingVoltage")` plus
+  `CFNumberGetValue`, and `IOAccessoryManagerGetUSBConnectType` is one
+  `IORegistryEntryCreateCFProperties` plus two dictionary lookups. They can only
+  return the same nothing, so do not go guessing their signatures.
+- `IOPortFeaturePowerSource`, where macOS keeps the PDO list, does not exist on iOS.
+  The profile menu arrives through `IOPSCopyExternalPowerAdapterDetails` instead.
+
+**The cable's e-marker is not hidden — it is never read.**
+`IOPortTransportComponentCCUSBPDSOPp` matches **no service**, while `…SOP` matches
+one. SOP is the port partner, which is the charger; SOP′ is the cable. Only the port
+that sources VCONN can talk to a cable plug, and while charging the phone is the
+sink — the charger is the one that reads the cable, and it trims the `UsbHvcMenu` it
+advertises to what the cable supports. macOS creates the SOP′ node only when it
+needs the cable's rating (above 3 A, or Thunderbolt), so on a Mac charging over a
+plain USB-C cable that node is absent too. Nothing about cable identity is reachable
+on a phone at any privilege level, because the conversation does not happen there.
+What is left is the cable's *effect*: the advertised menu against the charger's
+rating, and the port voltage against the current through it — see `PathResistanceMeter`.
+
 **Accessory battery levels are gone.** `BatteryCenter.framework` still loads from a
 normal sandbox and `BCBatteryDeviceController` still exists, but:
 
@@ -182,11 +222,20 @@ against a pack energy the user sets in Settings.
   maximum; `readings` keeps everything, with constants sorted last.
 - Four separate sensors are all named `gas gauge battery`. `HIDSensors.Reading.id`
   therefore includes the service index — name alone gave `ForEach` duplicate ids.
-- `Charger QQ0u` (usage 2) and `Charger WQ0u` (usage 3) are **unidentified**. They sit
+- `Charger QQ0u` (usage 2) and `Charger WQ0u` (usage 3) look like **accumulators**,
+  not readings, and stay out of every derived value until that is settled. They sit
   on the USB-C port, so they cannot be the wireless input; and `WQ0u` is not
-  instantaneous power (it read 0.726 while `VQ0u × IQ0u` was 3.91 W). `ALS` has the
-  same `Q`/`W` pair, so the letters are a general convention, not charger-specific.
-  They stay out of every derived value.
+  instantaneous power (it read 0.726 while `VQ0u × IQ0u` was 3.91 W). Two samples ten
+  minutes apart on one connection had both rising monotonically — `QQ0u` 0.817 →
+  1.495, `WQ0u` 3.629 → 6.530 — with ΔW/ΔQ = 4.28 against a `VQ0u` of 4.23–4.27 V.
+  That ratio is dimensionally volts and lands on the measured rail, which reads as
+  Q for charge and W for energy, the physics symbols; it would also explain why `ALS`
+  carries the same pair, the convention being general rather than charger-specific.
+  Not settled: the units are unknown, the two samples may straddle a replug, and the
+  first guess — that Q and W were `I` and `V` scaled by one common factor — was
+  falsified by the second sample, the ratios having matched to four digits once and
+  then differed by 2.4%. To pin it: sample repeatedly *without* unplugging, check
+  ΔQ/Δt against `IQ0u`, and check whether both reset on unplug.
 - Enumerating **all** HID services needs `IOHIDEventSystemClientSetMatching(client, NULL)`.
   An empty matching dictionary matches nothing, which made the debug button look dead.
 - `PMU tdie14`–`tdie17` appear in the service list but return NaN; they are skipped.
