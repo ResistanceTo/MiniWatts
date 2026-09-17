@@ -289,7 +289,10 @@ nonisolated final class AccessoryProbe {
         guard let function else { return nil }
         var buffer = [CChar](repeating: 0, count: 128)
         guard function(service, &buffer) == KERN_SUCCESS else { return nil }
-        let text = String(cString: buffer)
+        // Up to the terminator, then decoded: `String(cString:)` on an array is
+        // deprecated, and the name is ASCII in practice but UTF-8 is what it is.
+        let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+        let text = String(decoding: bytes, as: UTF8.self)
         return text.isEmpty ? nil : text
     }
 

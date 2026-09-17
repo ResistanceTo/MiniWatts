@@ -289,7 +289,14 @@ struct DebugView: View {
         func dump(_ title: String, _ dictionary: [String: Any]?) {
             guard let dictionary, !dictionary.isEmpty else { return }
             lines.append("\n# \(title)")
-            lines.append(contentsOf: dictionary.keys.sorted().map { "\($0) = \(String(describing: dictionary[$0]!))" })
+            // A loop, not `.map { … dictionary[$0] … }`. `[String: Any]` is not
+            // Sendable, and Xcode 26.6's compiler rejects capturing it in that closure
+            // ("sending 'dictionary' risks causing data races") where Xcode 27's
+            // accepts it. It went unnoticed while this page was `#if DEBUG`: CI builds
+            // Release, so the release toolchain had never compiled this file.
+            for key in dictionary.keys.sorted() {
+                lines.append("\(key) = \(String(describing: dictionary[key]!))")
+            }
         }
         dump("IOPMPowerSource", monitor.snapshot.registry)
         dump("powerd power source", monitor.snapshot.powerSource)
