@@ -74,6 +74,16 @@
         }
       }
     },
+    "Fahrenheit" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "华氏度"
+          }
+        }
+      }
+    },
     "Fitted over %@ of current swing, with %@ of it on the line." : {
       "localizations" : {
         "zh-Hans" : {
@@ -110,6 +120,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "单次采样，以协商出的 %@ 为参考。那个值是天花板而不是测量值，所以只能当数量级看。一旦电流动起来——80% 之后的涓流、热降频、手机自身的负载——它就会被一个完全不需要参考值的拟合结果取代。"
+          }
+        }
+      }
+    },
+    "Get ${metric}" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "获取${metric}"
+          }
+        }
+      }
+    },
+    "Get ${metric} in ${unit}" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "获取${metric}（${unit}）"
+          }
+        }
+      }
+    },
+    "Get Reading" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "获取读数"
           }
         }
       }
@@ -174,12 +214,42 @@
         }
       }
     },
+    "Reading" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "读数"
+          }
+        }
+      }
+    },
+    "Reads one value from the phone's sensors at the moment the action runs. When a sensor does not answer, the action returns no value — never 0, and never an older reading — so a shortcut can tell the difference." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在动作运行的那一刻从手机传感器读取一个值。传感器没有应答时，动作返回“无值”——不会返回 0，也不会返回之前的读数——这样快捷指令能分辨出来。"
+          }
+        }
+      }
+    },
     "Taking" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "取电比例"
+          }
+        }
+      }
+    },
+    "Temperature unit" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "温度单位"
           }
         }
       }
@@ -210,6 +280,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "端口电压已经塌到远低于协商值，手机正压着电流以维持电压。问题出在线缆或插头，不在充电器。"
+          }
+        }
+      }
+    },
+    "Unit" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单位"
           }
         }
       }

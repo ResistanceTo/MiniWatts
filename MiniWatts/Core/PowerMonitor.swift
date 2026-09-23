@@ -198,8 +198,7 @@ final class PowerMonitor {
         tick += 1
         thermal.update()
 
-        let registry = battery?.readRegistryProperties() ?? [:]
-        let sources = battery?.readPowerSources() ?? []
+        let (current, sources) = probe()
         // Only Raw data reads this. It used to be assigned under `#if DEBUG`, when that
         // screen was Debug-only; now that the page ships, the guard made its "powerd
         // power sources" panel report none in every release build — a false statement
@@ -207,14 +206,6 @@ final class PowerMonitor {
         // write costs nothing while that page is closed: `@Observable` invalidates only
         // views that read the property, and no other view does.
         powerSources = sources
-        let internalBattery = sources.first { ($0["Type"] as? String) == "InternalBattery" } ?? sources.first
-
-        let current = PowerSnapshot(date: .now,
-                                    registry: registry,
-                                    powerSource: internalBattery,
-                                    adapterDetails: battery?.readAdapterDetails(),
-                                    sensors: sensors?.read() ?? [],
-                                    chargeStatus: battery?.readChargeStatus())
         snapshot = current
 
         // Charger-side sensors only exist while something is plugged in, so the
@@ -233,6 +224,39 @@ final class PowerMonitor {
         updateSession(current)
         lastExternalConnected = current.externalConnected
         onTick?(current)
+    }
+
+    /// One pass over every probe. Shared by the tick and by `readNow()`, so a number
+    /// handed to Shortcuts is built from exactly the sources the dial is.
+    private func probe() -> (snapshot: PowerSnapshot, sources: [[String: Any]]) {
+        let registry = battery?.readRegistryProperties() ?? [:]
+        let sources = battery?.readPowerSources() ?? []
+        let internalBattery = sources.first { ($0["Type"] as? String) == "InternalBattery" } ?? sources.first
+        let snapshot = PowerSnapshot(date: .now,
+                                     registry: registry,
+                                     powerSource: internalBattery,
+                                     adapterDetails: battery?.readAdapterDetails(),
+                                     sensors: sensors?.read() ?? [],
+                                     chargeStatus: battery?.readChargeStatus())
+        return (snapshot, sources)
+    }
+
+    /// One fresh reading for the Shortcuts action, with none of the tick's side effects.
+    ///
+    /// `refresh()` cannot be reused for this. It opens and samples charge sessions and
+    /// persists them, feeds the resistance fit, drives the live activity and the widget
+    /// through `onTick`, and republishes `snapshot`. Shortcuts wakes the app in the
+    /// background — possibly every few minutes, for an automation — and each of those
+    /// would leave a one-sample session in History. This reads and returns.
+    ///
+    /// The HID service list is re-enumerated first. The tick does that on plug events,
+    /// but the tick is paused whenever the app is in the background, which is exactly
+    /// when Shortcuts runs it: a charger plugged in since the last tick would have no
+    /// sensors in the list, and charging power would come back as no reading while the
+    /// phone was plainly charging. Enumerating is cheap; a stale list is not.
+    func readNow() -> PowerSnapshot {
+        sensors?.rescan()
+        return probe().snapshot
     }
 
     private func appendLive(_ snapshot: PowerSnapshot) {

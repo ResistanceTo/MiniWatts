@@ -22,7 +22,11 @@ by several entries.
 - `TEAM_ID=… ./scripts/build-ipa.sh signed` — for your own device. No default team
   lives in this repo; `DEVELOPMENT_TEAM` is empty in the pbxproj and Xcode will
   write yours back into it if you pick one in the UI. Do not commit that.
-- `.github/workflows/build.yml` builds, verifies and (on a `v*` tag) releases.
+- `.github/workflows/build.yml` builds, verifies and (on a `v*` tag) releases. CI pins an
+  older Xcode than a development Mac usually runs, and the two compilers disagree:
+  v1.3.0's first tag failed on a Swift 6 sending error that Xcode 27 accepted and CI's
+  Xcode 26.6 did not. A clean local `build-ipa.sh` is not enough — run the workflow by
+  hand (`gh workflow run build.yml --ref master`) and tag only once it is green.
 - The simulator reads the **Mac's** battery through IOKit and has no HID sensors:
   fine for layout and for the adapter/PD panels, useless for anything sensor-driven.
 
@@ -56,8 +60,8 @@ by several entries.
   `ChargeActivityAttributes`, `WidgetSnapshot`, `ReadingWording`. `Widgets/` — the app
   side of the widget and the live activity (`WidgetPublisher`, `ChargeActivityController`),
   driven from the tick. `Floating/` — the Picture in Picture readout; see *The floating
-  meter*. `Widget/`, at the top level, is the extension itself; see *Widgets and Live
-  Activity*.
+  meter*. `Shortcuts/` — the Shortcuts action; see *Shortcuts*. `Widget/`, at the top
+  level, is the extension itself; see *Widgets and Live Activity*.
 
 ## Swift 6 isolation
 
@@ -383,6 +387,50 @@ tick keeps reading sensors.
 Unverified on a device when this was written: that PiP starts from a host that small,
 that `IOHIDEventSystemClient` still answers once the app is in the background, and how
 often iOS actually asks for a frame.
+
+## Shortcuts
+
+`Shortcuts/GetReadingIntent.swift` is one action, *Get Reading*, asked for in issue #9
+for a charging automation: switch a smart plug off when the battery gets hot. Its
+parameter is the four readings the live activity offers — same names, same snapshot
+fields, so a shortcut and the Dynamic Island agree — plus the charge level, and a
+Celsius/Fahrenheit unit that the parameter summary only shows for the temperatures. It
+returns `Double?`.
+
+- **No reading is no value — never 0, never the last one.** The automation is a cutoff,
+  and a cutoff that is handed 0 when the sensor is silent compares false forever and
+  leaves the charger on: it fails open, silently. As no value, Shortcuts' *does not have
+  any value* can catch it and cut the power anyway. The exception is charging power
+  while unplugged, which is a known 0, not a missing reading.
+- **It runs in the app's process, often with no scene.** When MiniWatts is not running,
+  iOS launches it in the background to perform the action: no `RootView`, and no tick,
+  since the tick only runs in the foreground. So `PowerMonitor.snapshot` is unusable —
+  it is as old as the last tick — and the action reads through `readNow()`, which
+  re-enumerates the HID services (a charger plugged in while the app was suspended is
+  not in the old list) and takes one probe with none of the tick's side effects. Reusing
+  `refresh()` would open a one-sample charge session every time an automation ran.
+- **It must go through `PowerMonitor` rather than build its own sensors**, because a
+  process gets one working HID client and a second reads NaN. `MiniWattsApp.init`
+  registers the monitor with `AppDependencyManager`, and the intent takes it through
+  `@Dependency`. `init` is the place because it is the one thing that runs on every
+  launch, background or not.
+- **Isolation.** Marking the struct `nonisolated`, as `EndChargeActivityIntent` is,
+  does not compile here: Swift 6.2 rejects `nonisolated` on the `@Parameter` and
+  `@Dependency` stored properties ("cannot be applied to mutable stored properties").
+  So the struct keeps the default isolation and every protocol requirement is marked
+  `nonisolated` instead. The conformance could not be main-actor isolated anyway:
+  `AppIntent` refines `Sendable`. The snapshot is built and read inside
+  `MainActor.run` and only the number crosses back — `PowerSnapshot` is not `Sendable`.
+- The metadata was checked in the built bundle (`Metadata.appintents/extract.actionsdata`):
+  discoverable, `openAppWhenRun` false, and the `When` clause over the three
+  temperatures. Parameter summaries are localised under `${metric}`-style keys, which
+  the Swift string extractor does not emit — those entries were added to the catalog by
+  hand.
+
+Unverified on a device when this was written: that `IOHIDEventSystemClient` answers
+when Shortcuts starts the app in the background (the same unknown as the widget's and
+the floating meter's), and that `@Dependency` resolves in a cold background launch. An
+action that returns a charge level but never a temperature means the first did not.
 
 ## Distribution
 
