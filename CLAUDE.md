@@ -427,10 +427,15 @@ returns `Double?`.
   the Swift string extractor does not emit — those entries were added to the catalog by
   hand.
 
-Unverified on a device when this was written: that `IOHIDEventSystemClient` answers
-when Shortcuts starts the app in the background (the same unknown as the widget's and
-the floating meter's), and that `@Dependency` resolves in a cold background launch. An
-action that returns a charge level but never a temperature means the first did not.
+Checked on a device (iPhone18,4, iOS 27): with MiniWatts swiped away in the app
+switcher, running the action from the Shortcuts app returned all five readings. So a
+cold background launch — a process that never had a scene — does run
+`MiniWattsApp.init`, `@Dependency` resolves, and `IOHIDEventSystemClient` answers. That
+is evidence for the floating meter's open question too, not proof of it: there the app
+is suspended and kept alive, here it is launched fresh. Not yet checked: a personal
+automation firing while the phone is locked, which is the case issue #9 is for. An
+action that returns a charge level but no temperature there means the sensors did not
+answer.
 
 ## Distribution
 
