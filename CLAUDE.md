@@ -432,10 +432,10 @@ switcher, running the action from the Shortcuts app returned all five readings. 
 cold background launch — a process that never had a scene — does run
 `MiniWattsApp.init`, `@Dependency` resolves, and `IOHIDEventSystemClient` answers. That
 is evidence for the floating meter's open question too, not proof of it: there the app
-is suspended and kept alive, here it is launched fresh. Not yet checked: a personal
-automation firing while the phone is locked, which is the case issue #9 is for. An
-action that returns a charge level but no temperature there means the sensors did not
-answer.
+is suspended and kept alive, here it is launched fresh. The case issue #9 is for
+passed too: a personal automation on *When power is connected*, with MiniWatts swiped
+away and the phone locked, showed the battery temperature in its notification — the
+sensors answer while the device is locked.
 
 ## Distribution
 
