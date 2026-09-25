@@ -47,11 +47,10 @@ struct GetReadingIntent: AppIntent {
         let monitor = monitor
         let metric = metric
         let unit = unit
-        // The snapshot is made and consumed on the main actor, where the sensors live;
-        // only the number crosses back.
-        let value = await MainActor.run { () -> Double? in
-            metric.value(in: monitor.readNow()).map { metric.present($0, in: unit) }
-        }
+        // The one shared probe reads off the main actor; only its immutable
+        // snapshot crosses back before the result is converted for Shortcuts.
+        let snapshot = await monitor.readNow()
+        let value = metric.value(in: snapshot).map { metric.present($0, in: unit) }
         return .result(value: value)
     }
 }

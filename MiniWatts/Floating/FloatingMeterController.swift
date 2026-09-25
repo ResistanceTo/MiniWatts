@@ -91,6 +91,7 @@ final class FloatingMeterController {
     private var pool: CVPixelBufferPool?
     private var poolSize = CGSize.zero
     private var lastFrame = Date.distantPast
+    private var hasPainted = false
 
     init() {
         let defaults = UserDefaults.standard
@@ -108,9 +109,22 @@ final class FloatingMeterController {
 
     /// Paints one reading. Called from the one-second tick, which keeps running
     /// while the window is open — that is the whole point of the window.
+    ///
+    /// Only paints while the window is up, plus the one frame that builds the
+    /// controller and gives the layer something to show. A frame is a full
+    /// `ImageRenderer` pass on the main thread — 15–20 ms on an iPhone Air — and it
+    /// used to be taken on every tick for the life of the app, window or no window:
+    /// once a second, on every screen, the main thread stopped to draw a picture
+    /// nobody could see (see *Performance* in CLAUDE.md). The layer keeps its last
+    /// frame while idle, and `start()` paints a current one before asking.
+    ///
+    /// The gate is "painted once", not "the system says a window is possible". The
+    /// latter was tried first and never came true on a device while the window was
+    /// closed, so the frames kept coming exactly as before.
     func render(snapshot: PowerSnapshot, thermalState: ProcessInfo.ThermalState) {
         guard status != .unsupported else { return }
         latestData = FloatingMeterData(snapshot: snapshot, thermalState: thermalState)
+        guard isRunning || !hasPainted else { return }
         // The tick is already once a second; this only guards against a burst.
         guard Date.now.timeIntervalSince(lastFrame) >= 0.4 else { return }
         lastFrame = .now
@@ -125,6 +139,7 @@ final class FloatingMeterController {
         // every frame in silence — which looks exactly like a frozen reading.
         if renderer.status == .failed { renderer.flush() }
         renderer.enqueue(sample)
+        hasPainted = true
 
         // Built here rather than in `start()`: `isPictureInPicturePossible` is the
         // controller's own answer, so a controller that only exists once the window
@@ -143,6 +158,9 @@ final class FloatingMeterController {
             status = .notReady
             return
         }
+        // Idle, the layer still holds whatever it painted last, which can be an hour
+        // old, and the window opens on that frame.
+        renderLatest()
         do {
             let session = AVAudioSession.sharedInstance()
             // Mixed, and silent: PiP needs a playback session to exist, not to be

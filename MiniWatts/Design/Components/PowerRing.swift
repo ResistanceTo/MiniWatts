@@ -30,6 +30,8 @@ struct PowerRing: View {
     }
 
     var body: some View {
+        // Both fractions change on the one-second tick. Animating them kept the
+        // dial drawing for almost half of every second while the page scrolled.
         ZStack {
             ticks
             arc(width: 14, inset: 0, fraction: inputFraction, color: tint)
@@ -37,8 +39,6 @@ struct PowerRing: View {
             centre
         }
         .frame(width: size, height: size)
-        .animation(.easeOut(duration: 0.45), value: inputFraction)
-        .animation(.easeOut(duration: 0.45), value: batteryFraction)
     }
 
     private var ticks: some View {
@@ -84,7 +84,7 @@ struct PowerRing: View {
             if let inputWatts {
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Text(Formatting.watts(inputWatts))
-                        .mwReadout(size: 52, weight: .semibold, rolling: true)
+                        .mwReadout(size: 52, weight: .semibold)
                         .foregroundStyle(tint)
                     Text(verbatim: "W")
                         .font(.system(size: 20, weight: .medium, design: .rounded))

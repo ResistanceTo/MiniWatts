@@ -21,14 +21,14 @@ import Foundation
 ///   Charger TQ0j / TQ0d    charger junction / die temperature
 ///   PMU tdie1…n            SoC die temperatures
 nonisolated final class HIDSensors {
-    enum Kind: Int {
+    enum Kind: Int, Sendable {
         case current = 2
         case voltage = 3
         case temperature = 5
         case other = 0
     }
 
-    struct Reading: Identifiable, Hashable {
+    struct Reading: Identifiable, Hashable, Sendable {
         let name: String
         let kind: Kind
         let value: Double
@@ -49,7 +49,7 @@ nonisolated final class HIDSensors {
     }
 
     /// One HID service as the system reports it, before any value is read.
-    struct ServiceInfo: Identifiable, Hashable {
+    struct ServiceInfo: Identifiable, Hashable, Sendable {
         let name: String
         let usagePage: Int
         let usage: Int

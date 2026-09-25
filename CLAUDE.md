@@ -33,9 +33,11 @@ by several entries.
 ## Layout
 
 - `Core/Sensors/` — the probes. `IOKitBattery` (dlsym'd IOKit + powerd), `HIDSensors`
-  (`IOHIDEventSystemClient`, one client per process, created once), `BatteryCenterBridge`,
-  `ThermalMonitor` (`ProcessInfo.thermalState`, public API), `SensorCatalog`
-  (name → zone/label by whole-word keyword, never exact).
+  (`IOHIDEventSystemClient`, one client per process, created once), `SensorProbe` (the
+  actor that owns both and does every read off the main actor: the tick, the Shortcuts
+  action and Raw data's inventory all queue on it, so the one HID client is never used
+  twice at once), `BatteryCenterBridge`, `ThermalMonitor` (`ProcessInfo.thermalState`,
+  public API), `SensorCatalog` (name → zone/label by whole-word keyword, never exact).
 - `Core/Model/` — `PowerSnapshot` merges all four sources and owns every derived value.
   Anything derived from the HID readings is resolved **once, in `init`, and stored** —
   it used to be computed per access, which meant a body asking for the battery
@@ -368,6 +370,13 @@ tick keeps reading sensors.
   every frame after, which looks exactly like a frozen reading, so the status is
   checked on the way in. The frame carries a running clock: if the seconds stop, the
   reading behind them stopped too.
+- **Frames are painted only while the window is up**, plus one frame at launch to build
+  the controller. `ImageRenderer` runs on the main thread — 15–20 ms a frame on an iPhone
+  Air — and v1.3.0–v1.4.0 painted every tick for the life of the app, window or not. The
+  first fix stopped painting once `isPictureInPicturePossible` came true, and on a device
+  it never does while the window is closed, so nothing changed; the gate is "painted
+  once" now. `start()` paints a current frame before asking, because an idle layer holds
+  whatever it last showed.
 - **`controlsStyle = 1`** is undocumented, guarded by a `responds(to:)` check, and the
   reason the window reads as an instrument rather than a paused video: it drops the
   play/pause and skip buttons AVKit otherwise draws over the frame.
@@ -419,8 +428,9 @@ returns `Double?`.
   `@Dependency` stored properties ("cannot be applied to mutable stored properties").
   So the struct keeps the default isolation and every protocol requirement is marked
   `nonisolated` instead. The conformance could not be main-actor isolated anyway:
-  `AppIntent` refines `Sendable`. The snapshot is built and read inside
-  `MainActor.run` and only the number crosses back — `PowerSnapshot` is not `Sendable`.
+  `AppIntent` refines `Sendable`. The snapshot is built on `SensorProbe` and awaited
+  through `monitor.readNow()`; `PowerSnapshot` is `@unchecked Sendable` for that hop
+  (its IOKit dictionaries are never mutated after construction).
 - The metadata was checked in the built bundle (`Metadata.appintents/extract.actionsdata`):
   discoverable, `openAppWhenRun` false, and the `When` clause over the three
   temperatures. Parameter summaries are localised under `${metric}`-style keys, which
@@ -503,14 +513,66 @@ writes for the widget's own `Info.plist`.
 
 `PageScaffold` uses a `LazyVStack`. History puts up to sixty session panels through it.
 
-Already removed: `contentTransition(.numericText())` on every readout (it is opt-in
-via `mwReadout(rolling:)` now, used only by the dial), and the heat map's 0.6 s
-animation, which was retriggered every second on a `blur` + `plusLighter` layer.
-The grid `Canvas` is `.drawingGroup()`-rasterised.
+**A tick must re-run panels, not pages.** An iPhone 15 Pro user reported a hitch once
+a second in any scroll, on every tab, charging or not. Average CPU never shows that;
+what does is how long the main thread is busy right after each tick. Measured in the
+simulator (Debug) with a run-loop observer and Time Profiler, each tick re-ran
+`RootView` (it read the snapshot for the idle timer), the page, `PageScaffold` — the
+navigation stack, title, toolbar and scroll view — and every panel. It did that on
+**every tab that had been visited**, because a `TabView` keeps visited tabs alive and
+their observation keeps firing while they are hidden. The sensor read itself was
+1–3 ms of the burst. Four tabs visited came to 24 ms of main thread a tick without
+scrolling; Power alone, scrolling, 13–18 ms, about half of it inside Swift Charts. At
+120 Hz a frame is 8.3 ms. Now only `PageContent`, its panels and `PageBackdrop` re-run,
+and only on the tab in front: 7–9 ms in the same run. The rules that keep it there:
+
+- A page reads the monitor only inside the closures it hands `PageScaffold`, never in
+  its own body. `glow` is an autoclosure for exactly this.
+- `RootView` reads nothing that changes every tick. `ScreenAwakeHolder` is the leaf that
+  does it instead.
+- `TabPage` decides whether a tab is built from the tab's own appear and disappear.
+  Deciding it in `RootView` from the selection had no effect: a hidden tab never gets
+  its parent's update, so it kept its page and went on updating it.
+
+**The biggest cost only shows on a device.** On an iPhone Air (iOS 27, Release, Time
+Profiler) the main thread was busy about 400 ms of every second while the Power page
+scrolled. Most of it was Core Animation commits drawing one SwiftUI layer on the CPU —
+`CGDrawingLayer` → `RBInterpolatedDisplayListContents` → `RBMovedDisplayListContents`,
+with a gaussian blur, gradients and glyphs inside — redrawn on every scroll frame. The
+simulator renders the same content on the GPU and showed none of it. The layer was the
+dial's number: its `.numericText()` digit roll, run inside the dial's `.animation` every
+second. Found by bisecting a test build that scrolls itself, with switches read from
+the launch environment (`xctrace record --env … --launch -- <bundle id>`): with the page
+content replaced by plain rows the CPU drawing went to 1 ms/s. Switching off the backdrop,
+the dial's shadow, its tick `Canvas` and the live chart, singly or all together, changed
+nothing. Switching off the digit roll alone took it from 116–180 ms/s to 11. Readouts
+snap now, the dial's included. Two more per-tick costs were measured there: the floating
+meter's frame (above) at 15–20 ms, and the sensor read and the rest of `refresh()` at
+about 5 ms.
+
+Already removed: `contentTransition(.numericText())` on every readout, the dial's last
+(see above), and the heat map's 0.6 s animation, which was retriggered every second on a
+`blur` + `plusLighter` layer. The grid `Canvas` is `.drawingGroup()`-rasterised.
 
 Deliberately kept despite the cost, as design decisions: the `Backdrop`'s full-screen
-`plusLighter` glow, and `PowerRing`'s `.shadow` on a stroked arc (a non-rectangular
-shadow is an offscreen pass per frame).
+`plusLighter` glow, and `PowerRing`'s `.shadow` on a stroked arc. Both were switched off
+in the bisection above and neither moved the main-thread numbers.
+
+**Follow-up: the once-per-second hitch remained in the installed 1.4.0 build.** A
+16-second iPhone Air Time Profiler recording of that exact binary, symbolicated
+with its matching dSYM, found 15 `PowerMonitor.refresh()` bursts about 1.05–1.13 s
+apart. The main thread had roughly 5–6 ms of sampled work per tick inside
+`refresh()`, including the synchronous IOKit/HID calls. It then had roughly
+40–50 ms of sampled work in the next 150 ms, and kept rendering until about
+550 ms after the tick before going nearly idle. The strongest leaf-sample groups
+were CoreGraphics, SwiftUICore and AttributeGraph. This recording was on Power;
+it does not by itself identify the cost of every other tab. The dial still had
+two 0.45 s arc animations on values that change every tick, matching the long
+rendering tail. Those animations have now been removed. The shared probe and
+snapshot assembly have moved to `SensorProbe`, an actor outside the main actor;
+`PowerMonitor` publishes the result on the main actor. Scrolled by hand on a device
+after these changes, shipped in v1.4.1: no hitch. Not yet re-recorded with Time
+Profiler.
 
 ## Conventions
 

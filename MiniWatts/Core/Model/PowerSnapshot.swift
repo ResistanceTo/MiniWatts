@@ -39,7 +39,11 @@ nonisolated struct ZoneTemperatures: Identifiable, Hashable {
 /// name — once per sensor per scan. At one snapshot a second and several bodies per
 /// snapshot that added up to real work in the render pass. The raw dictionaries stay
 /// computed: those are single hash lookups.
-nonisolated struct PowerSnapshot {
+/// SensorProbe hands this immutable snapshot to the main actor. Its raw IOKit
+/// property-list dictionaries are bridged to Swift dictionaries and no caller
+/// mutates their values after construction.
+/// TODO: model raw diagnostics as typed Sendable values and remove @unchecked.
+nonisolated struct PowerSnapshot: @unchecked Sendable {
     let date: Date
     let registry: [String: Any]
     let powerSource: [String: Any]?
