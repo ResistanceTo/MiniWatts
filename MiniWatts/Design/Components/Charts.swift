@@ -145,6 +145,7 @@ struct SessionPowerChart: View {
 
     var body: some View {
         let input = inputPoints
+        let upperBound = ceiling
         return Chart {
             runAreas(input, axis: "Elapsed", topOpacity: 0.4)
             runLines(input, axis: "Elapsed",
@@ -160,12 +161,12 @@ struct SessionPowerChart: View {
             ForEach(samples.filter(\.throttled)) { sample in
                 RectangleMark(x: .value("Elapsed", sample.offset),
                               yStart: .value("Watts", 0),
-                              yEnd: .value("Watts", ceiling),
+                              yEnd: .value("Watts", upperBound),
                               width: .fixed(2))
                     .foregroundStyle(Color.mwDanger.opacity(0.12))
             }
         }
-        .chartYScale(domain: 0...ceiling)
+        .chartYScale(domain: 0...upperBound)
         .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 4)) { value in
                 AxisGridLine().foregroundStyle(Color.mwGrid)
