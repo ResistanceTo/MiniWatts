@@ -114,6 +114,7 @@ final class PowerMonitor {
     private let store = SessionStore()
 
     private var task: Task<Void, Never>?
+    private var hasRequestedStoredSessions = false
     private var tick = 0
     private var lastSampleWrite: Date = .distantPast
     private var lastPersist: Date = .distantPast
@@ -154,7 +155,6 @@ final class PowerMonitor {
             .flatMap(LiveActivityMetric.init(rawValue:)) ?? .chargingPower
         sensorServiceCount = probeService.initialServiceCount
         collectDiagnostics()
-        Task { await loadStoredSessions() }
     }
 
     /// Reads the session file off the main thread and merges it in.
@@ -189,6 +189,12 @@ final class PowerMonitor {
 
     func start() {
         guard task == nil else { return }
+        // A background Shortcut needs only a fresh reading, not session history.
+        // Remember the request across pauses, even while the file is still loading.
+        if !hasRequestedStoredSessions {
+            hasRequestedStoredSessions = true
+            Task { await loadStoredSessions() }
+        }
         task = Task { [weak self] in
             while let self, !Task.isCancelled {
                 await self.refresh()

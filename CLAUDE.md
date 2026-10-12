@@ -104,7 +104,8 @@ foreground. Three things make that work and they are easy to undo by accident:
   way to keep the tick alive is the floating meter, which runs through a locked screen.
 
 `SessionStore` encodes and writes on its own serial queue, coalescing bursts, and the
-load in `PowerMonitor.init` is a `Task`. At the ceiling — 60 sessions × 1,500 samples —
+load starts once in `PowerMonitor.start()` as a `Task`, so a background-only Shortcut
+does not load unused history. At the ceiling — 60 sessions × 1,500 samples —
 the file is several megabytes, and doing that inline was a stall before the first frame
 and again every thirty seconds during a charge. `persist()` is a no-op until `isLoaded`,
 or a save landing before the load would truncate the history to nothing.
