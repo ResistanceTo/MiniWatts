@@ -173,7 +173,13 @@ struct PageScaffold<Content: View>: View {
                     // ideal width — the text unwrapped onto one line — and
                     // `.frame(maxWidth: .infinity)` only expands, it does not clamp, so
                     // that width propagates up and the page starts scrolling sideways.
-                    .containerRelativeFrame(.horizontal)
+                    //
+                    // Capped at 760 pt for an iPad, and the cap has to be part of this
+                    // same frame: the pin is a fixed width, so a `frame(maxWidth:)`
+                    // after it cannot narrow it — the content just overflows that frame
+                    // by the same amount on both sides and looks exactly as wide as before.
+                    .containerRelativeFrame(.horizontal) { width, _ in min(width, 760) }
+                    .frame(maxWidth: .infinity)
                 }
             }
             .navigationTitle(title)
@@ -208,6 +214,18 @@ private struct PageBackdrop: View {
 }
 
 /// Used wherever a probe legitimately has nothing to report.
+/// Shown where the input figure would be, when the input sensors answered but more
+/// power is reaching the cell than they account for. See `PowerSnapshot.partialInputWatts`.
+struct PartialInputNote: View {
+    let sensedWatts: Double
+    let cellWatts: Double
+
+    var body: some View {
+        EmptyNote(text: "The input sensors read \(Formatting.watts(sensedWatts)) W while \(Formatting.watts(cellWatts)) W is reaching the cell, so on this model they see only part of what comes in. That figure is not shown as the input, and nothing is worked out from it.",
+                  systemImage: "exclamationmark.triangle")
+    }
+}
+
 struct EmptyNote: View {
     let text: LocalizedStringResource
     var systemImage: String = "info.circle"

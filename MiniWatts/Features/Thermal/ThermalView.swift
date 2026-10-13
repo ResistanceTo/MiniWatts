@@ -5,7 +5,8 @@ struct ThermalView: View {
 
     private var snapshot: PowerSnapshot { monitor.snapshot }
 
-    /// Hottest *live* reading per zone, which is what the map draws.
+    /// One reading per zone, which is what the map draws: the hottest *live* one,
+    /// or for the battery the median its readout uses.
     ///
     /// It used to take `readings.first`, which included `PMU tcal` — a calibration
     /// constant pinned at 51.8 °C. That made the SoC blob permanently red and put a
@@ -13,7 +14,7 @@ struct ThermalView: View {
     /// exclude it, said 44°. The same screen contradicted itself.
     private var zoneReadings: [(zone: ThermalZone, celsius: Double)] {
         snapshot.temperaturesByZone.compactMap { group in
-            group.hottest.map { (group.zone, $0) }
+            group.representative.map { (group.zone, $0) }
         }
     }
 
@@ -22,12 +23,20 @@ struct ThermalView: View {
             statePanel
             if snapshot.temperatures.isEmpty {
                 Panel("Sensors", systemImage: "sensor") {
-                    EmptyNote(text: "No temperature sensors were found. The simulator has none; on a device they appear as soon as the app has read the HID service list.",
+                    EmptyNote(text: snapshot.temperatureWarnings.isEmpty
+                              ? "No temperature sensors were found. The simulator has none; on a device they appear as soon as the app has read the HID service list."
+                              : "Temperature sensors answered, but every value was excluded from derived readings. See the filter details below.",
                               systemImage: "exclamationmark.triangle")
+                }
+                if !snapshot.temperatureWarnings.isEmpty {
+                    temperatureWarningsPanel
                 }
             } else {
                 mapPanel
                 trendPanel
+                if !snapshot.temperatureWarnings.isEmpty {
+                    temperatureWarningsPanel
+                }
                 ForEach(snapshot.temperaturesByZone) { group in
                     zonePanel(group)
                 }
@@ -41,7 +50,7 @@ struct ThermalView: View {
     /// dropped by `HIDSensors`, but a value that is wrong and still looks plausible
     /// cannot be caught that way, so the page says so rather than implying otherwise.
     private var modelNote: some View {
-        EmptyNote(text: "Sensor names and scales differ by iPhone model, and this build was checked on an iPhone Air. Impossible readings are hidden, but a reading that is merely wrong cannot be spotted that way — if something here looks off for your model, it may well be.",
+        EmptyNote(text: "Sensor names and scales differ by iPhone model, and this build was checked on an iPhone Air. Impossible readings stay in Raw data but are left out of derived temperatures; a reading that is merely wrong cannot be spotted that way — if something here looks off for your model, it may well be.",
                   systemImage: "exclamationmark.circle")
             .padding(.horizontal, 4)
     }
@@ -139,7 +148,7 @@ struct ThermalView: View {
                                value: String(format: "%.1f", hottest.value),
                                unit: "°C",
                                tint: .mwTemperature(hottest.value),
-                               footnote: Text(verbatim: hottest.name),
+                               footnote: sensorSource(hottest),
                                size: 22)
                         Metric(caption: "Battery",
                                value: snapshot.batteryTemperature.map { String(format: "%.1f", $0) } ?? "—",
@@ -151,7 +160,7 @@ struct ThermalView: View {
                                value: snapshot.chargerTemperature.map { String(format: "%.1f", $0) } ?? "—",
                                unit: "°C",
                                tint: snapshot.chargerTemperature.map { Color.mwTemperature($0) } ?? .primary,
-                               footnote: snapshot.hottestSensor(in: .charger).map { Text(verbatim: $0.name) },
+                               footnote: snapshot.hottestSensor(in: .charger).map(sensorSource),
                                size: 22)
                     }
                 }
@@ -169,29 +178,52 @@ struct ThermalView: View {
         }
     }
 
+    private var temperatureWarningsPanel: some View {
+        Panel("Excluded from derived temperatures", systemImage: "exclamationmark.triangle") {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(snapshot.temperatureWarnings, id: \.self) { warning in
+                    Text(verbatim: warning)
+                        .mwMono(size: 11)
+                        .foregroundStyle(Color.mwMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
     /// Where the battery figure came from. Usually a HID sensor; on the simulator —
     /// and anywhere else the registry is not filtered — it is the registry itself,
     /// which is a different provenance and worth saying so.
     private var batteryTemperatureSource: Text? {
         if snapshot.registryTemperature != nil { return Text(verbatim: "IOPMPowerSource") }
-        return snapshot.hottestSensor(in: .battery).map { Text(verbatim: $0.name) }
+        if snapshot.batteryTemperatureReadings.count > 1 {
+            return Text(verbatim: "median of \(snapshot.batteryTemperatureReadings.count) battery sensors")
+        }
+        return snapshot.hottestSensor(in: .battery).map(sensorSource)
     }
 
     // MARK: Zones
 
     /// How one sensor is labelled: the translated name when we recognise it, with
     /// the hardware name kept underneath, and the bare hardware name when we do not.
-    private func sensorLabels(_ name: String) -> (title: Text, subtitle: Text?) {
-        guard let label = SensorCatalog.label(for: name) else { return (Text(verbatim: name), nil) }
-        return (Text(label), Text(verbatim: name))
+    private func sensorSource(_ reading: HIDSensors.Reading) -> Text {
+        Text(verbatim: "\(reading.name) · #\(reading.index)")
+    }
+
+    private func sensorLabels(_ reading: HIDSensors.Reading) -> (title: Text, subtitle: Text?) {
+        let source = sensorSource(reading)
+        guard let label = SensorCatalog.label(for: reading.name) else {
+            return (Text(verbatim: reading.name), source)
+        }
+        return (Text(label), source)
     }
 
     private func zonePanel(_ group: ZoneTemperatures) -> some View {
         Panel(group.zone.title, systemImage: group.zone.symbol,
-              trailing: group.hottest.map { Text(verbatim: String(format: "%.1f °C", $0)) }) {
+              trailing: group.representative.map { Text(verbatim: String(format: "%.1f °C", $0)) }) {
             VStack(spacing: 10) {
                 ForEach(group.readings) { reading in
-                    let labels = sensorLabels(reading.name)
+                    let labels = sensorLabels(reading)
                     BarRow(title: labels.title,
                            detail: String(format: "%.1f °C", reading.value),
                            fraction: (reading.value - 20) / 30,

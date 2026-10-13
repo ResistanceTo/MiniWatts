@@ -1109,12 +1109,42 @@
         }
       }
     },
-    "from charger" : {
+    "at charging coil" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "来自充电器"
+            "value" : "充电线圈处"
+          }
+        }
+      }
+    },
+    "at phone port" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手机接口处"
+          }
+        }
+      }
+    },
+    "At charging coil" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "充电线圈处"
+          }
+        }
+      }
+    },
+    "At phone port" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手机接口处"
           }
         }
       }
@@ -1125,16 +1155,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "来自充电器"
-          }
-        }
-      }
-    },
-    "from MagSafe" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "来自 MagSafe"
           }
         }
       }
@@ -2335,16 +2355,6 @@
         }
       }
     },
-    "Sensor names and scales differ by iPhone model, and this build was checked on an iPhone Air. Impossible readings are hidden, but a reading that is merely wrong cannot be spotted that way — if something here looks off for your model, it may well be." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "传感器的名称和换算方式因 iPhone 机型而异，这个版本是在 iPhone Air 上验证的。不可能的读数会被隐藏，但只是错、却还说得过去的读数拦不住——如果这里有哪个数字在你的机型上看着不对，很可能就是不对。"
-          }
-        }
-      }
-    },
     "Free and open source" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2691,6 +2701,56 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "当前充电功率低于适配器额定值是正常的：系统热压力可能正在限制电流。"
+          }
+        }
+      }
+    },
+    "The input sensors read %@ W while %@ W is reaching the cell, so on this model they see only part of what comes in. That figure is not shown as the input, and nothing is worked out from it." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输入传感器读数为 %1$@ W，而进入电芯的有 %2$@ W，说明在这个机型上它们只测到了部分输入。这个数值不会作为输入功率显示，也不会据此推算任何结果。"
+          }
+        }
+      }
+    },
+    "Sensor names and scales differ by iPhone model, and this build was checked on an iPhone Air. Impossible readings stay in Raw data but are left out of derived temperatures; a reading that is merely wrong cannot be spotted that way — if something here looks off for your model, it may well be." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "传感器的名称和换算方式因 iPhone 机型而异，这个版本是在 iPhone Air 上验证的。不可能的读数仍保留在原始数据里，但不参与推算出的温度；只是错、却还说得过去的读数拦不住——如果这里有哪个数字在你的机型上看着不对，很可能就是不对。"
+          }
+        }
+      }
+    },
+    "Excluded from derived temperatures" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未计入推算温度的读数"
+          }
+        }
+      }
+    },
+    "Temperature sensors answered, but every value was excluded from derived readings. See the filter details below." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "温度传感器有响应，但所有数值都被排除在推算读数之外。详见下方的过滤说明。"
+          }
+        }
+      }
+    },
+    "Measured at the phone's USB-C rail (VQ0u × IQ0u). The adapter value is a negotiated ceiling, not a wall-meter reading." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在手机 USB-C 供电轨上测得（VQ0u × IQ0u）。适配器的数值是协商出的上限，不是功率计的读数。"
           }
         }
       }

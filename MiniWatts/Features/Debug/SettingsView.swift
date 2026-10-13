@@ -32,7 +32,9 @@ struct SettingsView: View {
                     // ideal width — the text unwrapped onto one line — and
                     // `.frame(maxWidth: .infinity)` only expands, it does not clamp, so
                     // that width propagates up and the page starts scrolling sideways.
-                    .containerRelativeFrame(.horizontal)
+                    // The cap is part of the pin: see `PageScaffold`.
+                    .containerRelativeFrame(.horizontal) { width, _ in min(width, 760) }
+                    .frame(maxWidth: .infinity)
                 }
             }
             .navigationTitle("Settings")

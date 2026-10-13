@@ -26,6 +26,7 @@ struct DebugView: View {
                 VStack(spacing: 14) {
                     diagnosticsPanel
                     sensorsPanel
+                    temperatureWarningsPanel
                     inventoryPanel
                     accessoryPanel
                     dictionaryPanel("IOPMPowerSource", systemImage: "cpu", dictionary: monitor.snapshot.registry)
@@ -42,7 +43,9 @@ struct DebugView: View {
                 // ideal width — the text unwrapped onto one line — and
                 // `.frame(maxWidth: .infinity)` only expands, it does not clamp, so
                 // that width propagates up and the page starts scrolling sideways.
-                .containerRelativeFrame(.horizontal)
+                // The cap is part of the pin: see `PageScaffold`.
+                .containerRelativeFrame(.horizontal) { width, _ in min(width, 760) }
+                .frame(maxWidth: .infinity)
             }
         }
         .navigationTitle("Raw data")
@@ -84,7 +87,24 @@ struct DebugView: View {
                     ForEach(monitor.snapshot.sensors
                         .filter { matches($0.name, $0.formatted) }
                         .sorted { $0.name < $1.name }) { reading in
-                        DetailRow(rawLabel: reading.name, value: reading.formatted)
+                        DetailRow(rawLabel: "[\(reading.index)] \(reading.name)", value: reading.formatted)
+                    }
+                }
+            }
+        }
+    }
+
+    private var temperatureWarningsPanel: some View {
+        Panel("Derived temperature filters", systemImage: "thermometer.variable.and.figure") {
+            if monitor.snapshot.temperatureWarnings.isEmpty {
+                EmptyNote(text: "No temperature readings were excluded from derived values.")
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(monitor.snapshot.temperatureWarnings, id: \.self) { warning in
+                        Text(verbatim: warning)
+                            .mwMono(size: 11)
+                            .foregroundStyle(Color.mwMuted)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -255,7 +275,17 @@ struct DebugView: View {
         var lines: [String] = ["MiniWatts raw dump — \(Formatting.timestamp(.now))"]
         lines.append(contentsOf: monitor.diagnostics)
         lines.append("\n# Sensors")
-        lines.append(contentsOf: monitor.snapshot.sensors.sorted { $0.name < $1.name }.map { "\($0.name) = \($0.formatted)" })
+        lines.append(contentsOf: monitor.snapshot.sensors.sorted { ($0.name, $0.index) < ($1.name, $1.index) }
+            .map { "[\($0.index)] \($0.name) = \($0.formatted)" })
+        if !monitor.snapshot.temperatureWarnings.isEmpty {
+            lines.append("\n# Derived temperature filters")
+            lines.append(contentsOf: monitor.snapshot.temperatureWarnings)
+        }
+        if let partial = monitor.snapshot.partialInputWatts, let cell = monitor.snapshot.batteryWatts {
+            lines.append("\n# Derived power filters")
+            lines.append(String(format: "input sensors = %.2f W, into cell = %.2f W — input excluded from derived values: less than the cell receives",
+                                partial, cell))
+        }
         if !inventory.isEmpty {
             lines.append("\n# HID inventory")
             lines.append(contentsOf: inventory.map { String(format: "%@  0x%04x / %d", $0.name, $0.usagePage, $0.usage) })

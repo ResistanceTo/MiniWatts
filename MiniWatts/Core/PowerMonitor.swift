@@ -533,13 +533,11 @@ final class PowerMonitor {
     var headline: (watts: Double, caption: LocalizedStringResource)? {
         if snapshot.externalConnected {
             if let watts = snapshot.inputWatts {
-                // Written out rather than as a ternary in the tuple. The string
-                // extractor took only the first branch there — "from charger" never
-                // reached the catalog and the dial's caption fell back to English on
-                // every wired charge. `Text` and `LocalizedStringResource` literals
-                // want to be at their own return site.
-                if snapshot.isWirelessInput { return (watts, "from MagSafe") }
-                return (watts, "from charger")
+                // Written out rather than as a ternary in the tuple. `LocalizedStringResource`
+                // literals want to be at their own return site so both transport labels
+                // reach the catalog.
+                if snapshot.isWirelessInput { return (watts, "at charging coil") }
+                return (watts, "at phone port")
             }
             // Wireless charging has no input-current sensor — the PMU exposes the
             // coil voltage and nothing to multiply it by — so rather than reading

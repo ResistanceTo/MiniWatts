@@ -8,8 +8,8 @@ import Foundation
 nonisolated extension ChargeReading.Source {
     var caption: LocalizedStringResource {
         switch self {
-        case .charger: return "from charger"
-        case .magSafe: return "from MagSafe"
+        case .charger: return "at phone port"
+        case .magSafe: return "at charging coil"
         case .intoBattery: return "into battery"
         case .fromBattery: return "drawn from battery"
         }
