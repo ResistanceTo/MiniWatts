@@ -173,8 +173,12 @@ struct PageScaffold<Content: View>: View {
                     // ideal width — the text unwrapped onto one line — and
                     // `.frame(maxWidth: .infinity)` only expands, it does not clamp, so
                     // that width propagates up and the page starts scrolling sideways.
-                    .containerRelativeFrame(.horizontal)
-                    .frame(maxWidth: 760)
+                    //
+                    // Capped at 760 pt for an iPad, and the cap has to be part of this
+                    // same frame: the pin is a fixed width, so a `frame(maxWidth:)`
+                    // after it cannot narrow it — the content just overflows that frame
+                    // by the same amount on both sides and looks exactly as wide as before.
+                    .containerRelativeFrame(.horizontal) { width, _ in min(width, 760) }
                     .frame(maxWidth: .infinity)
                 }
             }
