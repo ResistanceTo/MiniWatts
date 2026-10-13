@@ -4,10 +4,10 @@
 
 [![Build](https://github.com/ResistanceTo/MiniWatts/actions/workflows/build.yml/badge.svg)](https://github.com/ResistanceTo/MiniWatts/actions/workflows/build.yml)
 
-An iPhone battery and charging monitor built on Apple's private APIs. It reads the
-phone's own power-management sensors — the ones iOS uses to run the charge — and shows
+An iPhone and iPad battery and charging monitor built on Apple's private APIs. It reads the
+device's own power-management sensors — the ones iOS uses to run the charge — and shows
 what the charger is delivering, how much of it reaches the cell, where the rest goes as
-heat, and what every temperature sensor in the phone is doing while it happens.
+heat, and what every temperature sensor in the device is doing while it happens.
 
 | Power | Thermal | Adapter | History |
 |:-:|:-:|:-:|:-:|
@@ -25,7 +25,7 @@ Apple ID — [Sideloadly](https://sideloadly.io), [AltStore](https://altstore.io
 [SideStore](https://sidestore.io) and Xcode all do this. A free Apple ID works; the app
 then expires after seven days and you re-sign it.
 
-Requires iPhone, iOS 17 or later.
+Requires iPhone or iPad, iOS 17 or later.
 
 Or add the source to SideStore or AltStore — including the SideStore bundled with
 LiveContainer — and install from there, so new versions show up as updates:
@@ -44,11 +44,12 @@ widget.
 
 ## What it can't do
 
-Sensor names, scales and even which sensors exist differ by iPhone model, and none of
+Sensor names, scales and even which sensors exist differ by device model, and none of
 it is documented. This build was written and verified on an iPhone Air; on another
 model a reading can be missing or mean something other than its name suggests.
-Impossible values — a charge IC at −9199 °C, which someone really did see — are hidden
-rather than shown, but a wrong value that looks plausible cannot be caught that way.
+Impossible values — a charge IC at −9199 °C, which someone really did see — stay in Raw
+data for diagnosis but are left out of derived temperatures; a wrong value that looks
+plausible cannot be caught that way.
 Please report anything surprising with your model identifier.
 
 Only what iOS actually hands a sandboxed app. Battery health and cycle count are
@@ -56,6 +57,11 @@ filtered out of the registry; accessory batteries (Watch, AirPods) come back emp
 wireless charging exposes no input current, so on MagSafe you only see what reaches the
 cell; discharge power has no sensor and is estimated from the percentage. Charging holds
 can only be inferred, and the app labels them `inferred` when that is what happened.
+
+For wired charging, the live input number is measured at the phone's USB-C rail
+(`VQ0u × IQ0u`). The adapter's advertised watts are a negotiated ceiling, while a wall
+meter includes the adapter and cable losses, so those figures describe different points
+in the power path and should not be expected to match.
 
 Widgets refresh when iOS decides to, usually every 15 to 60 minutes, and each one shows
 when its numbers were taken. The Live Activity only updates while MiniWatts is running;

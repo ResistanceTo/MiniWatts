@@ -71,7 +71,10 @@ nonisolated final class PathResistanceMeter {
         let contractMilliamps: Int
 
         init?(_ snapshot: PowerSnapshot) {
-            guard snapshot.externalConnected, !snapshot.isWirelessInput, !snapshot.adapterIsWireless
+            // A current sensor that sees only part of the input would fit a slope to
+            // the wrong current and report a resistance that is off by the same factor.
+            guard snapshot.externalConnected, !snapshot.isWirelessInput, !snapshot.adapterIsWireless,
+                  snapshot.partialInputWatts == nil
             else { return nil }
             adapter = [snapshot.adapterName, snapshot.adapterSerial, snapshot.adapterModel]
                 .compactMap { $0 }.joined(separator: "|")

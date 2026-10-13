@@ -181,22 +181,22 @@
         }
       }
     },
-    "from charger" : {
+    "at charging coil" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "来自充电器"
+            "value" : "充电线圈处"
           }
         }
       }
     },
-    "from MagSafe" : {
+    "at phone port" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "来自 MagSafe"
+            "value" : "手机接口处"
           }
         }
       }

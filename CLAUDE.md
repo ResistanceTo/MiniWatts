@@ -217,6 +217,10 @@ current into the cell fell from 0.76 A to 0.51 A; over USB-C the same pair equal
 `UsbHvcMenu` profile's `MaxVoltage` × `MaxCurrent` exactly (5 V × 3 A) while the phone
 drew 3.9 W. Use it for the rating, never for live draw.
 
+**A `UsbHvcMenu` entry of 65535 mV × 65535 mA is a placeholder, not a profile.** An
+iPhone 18 Pro Max listed one as its seventh entry; `adapterProfiles` drops it. What it
+stands for is not known.
+
 **No discharge-current sensor exists.** Discharge power comes from the %-rate estimate
 against a pack energy the user sets in Settings.
 
@@ -232,6 +236,13 @@ against a pack energy the user sets in Settings.
   maximum; `readings` keeps everything, with constants sorted last.
 - Four separate sensors are all named `gas gauge battery`. `HIDSensors.Reading.id`
   therefore includes the service index — name alone gave `ForEach` duplicate ids.
+  `PowerSnapshot.batteryTemperature` now uses the median of the live battery-zone
+  readings, so one duplicate service reporting a high value cannot become the phone's
+  representative battery temperature; the Thermal page names the aggregation and keeps
+  every indexed source visible below it. The battery zone's `representative` — the heat
+  map's pin and the zone header — is that same median, for the reason `tcal` is excluded
+  at the grouping: one screen must not show two battery temperatures. "Hottest" still
+  ranks every live sensor, so the high gas-gauge service can lead it, under its own name.
 - `Charger QQ0u` (usage 2) and `Charger WQ0u` (usage 3) look like **accumulators**,
   not readings, and stay out of every derived value until that is settled. They sit
   on the USB-C port, so they cannot be the wireless input; and `WQ0u` is not
@@ -261,6 +272,26 @@ against a pack energy the user sets in Settings.
   This catches impossible values, not merely wrong ones: Settings → About and the
   Thermal page both say which model the build was verified on, because a mis-scaled
   reading that still looks plausible cannot be caught in code.
+  Two additional model-specific sentinels are guarded at the same boundary: a `tdev`
+  value below −10 °C, and a charge-IC die `TQ<n>d` above 85 °C without a matching warm
+  `TQ<n>j` junction on the same rail — any rail, since an iPad Pro M1 does on `TQ2d`
+  what an iPhone 11 does on `TQ0d`. A third: a temperature of exactly 0.0 °C, which an
+  iPhone 11 reports for nine switched-off sensors (camera dies, `AMC ODTS`, `TV1s`–`TV5s`). Both remain in Raw data with an exclusion reason, but do not feed the heat
+  map, hottest reading or session history.
+
+- **`VQ0u × IQ0u` is not the whole input on every model.** An iPad Pro M1 (iPad13,4)
+  showed 6.41 W from the charger beside 16.6 W into the cell; an iPhone 18 Pro Max read
+  21.8 W while an inline meter on the same cable read 14.55 V × 2.99 A = 43.5 W — the
+  voltage right, the current half, and only in the high-power mode (at 26 W and 14 W the
+  two agreed). `IQ0u` evidently sees one of several input paths there; which sensor
+  carries the rest is not known, and needs a raw dump taken at full power on that model.
+  Until then the snapshot checks the physics: when the cell is receiving more than the
+  input sensors account for (over 1.2× and by more than 1.5 W), `inputWatts` is nil and
+  the product is kept in `partialInputWatts`. Being nil, it is a missing reading
+  everywhere — the dial drops to "into battery", nothing is integrated, no efficiency or
+  utilisation is worked out, and the path-resistance figures refuse — and the Power and
+  Adapter pages say why. The check cannot catch a short reading on a model whose
+  cell-side sensor is also short, or absent.
 
 ## Widgets and Live Activity
 

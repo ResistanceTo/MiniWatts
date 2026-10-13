@@ -33,6 +33,8 @@ struct SettingsView: View {
                     // `.frame(maxWidth: .infinity)` only expands, it does not clamp, so
                     // that width propagates up and the page starts scrolling sideways.
                     .containerRelativeFrame(.horizontal)
+                    .frame(maxWidth: 760)
+                    .frame(maxWidth: .infinity)
                 }
             }
             .navigationTitle("Settings")
