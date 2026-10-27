@@ -44,6 +44,7 @@ by several entries.
   temperature four times did four linear scans and called `SensorCatalog.zone(for:)`
   (which lowercases and splits) once per sensor per scan. Registry lookups stay
   computed: those are single hash hits. Also here:
+  `LevelRateCheck` sets the level's rise against the cell sensors (see *Sensor notes*);
   `EnergyAccumulator` integrates ∫V·I dt; `ChargeSession` + `SessionStore` persist charges
   as one JSON file in Application Support.
 - `Core/PowerMonitor.swift` — `@Observable`, 1 s tick, drives everything and owns session
@@ -222,7 +223,11 @@ iPhone 18 Pro Max listed one as its seventh entry; `adapterProfiles` drops it. W
 stands for is not known.
 
 **No discharge-current sensor exists.** Discharge power comes from the %-rate estimate
-against a pack energy the user sets in Settings.
+against a pack energy the user sets in Settings. Until they do, `PowerMonitor.modelRating`
+supplies it for the few models a rating was found for (18 Pro Max 21.75 Wh, 17 Pro Max
+19.7 Wh), and 15 Wh otherwise. Keep that table to checked figures: a wrong default is
+shown to the user as a number. powerd's `Current Capacity` came in multiples of 5 in all
+four iOS 27 dumps in the issues, iPhone 11 included.
 
 ## Sensor notes (iPhone 17 / iPhone18,4)
 
@@ -234,7 +239,17 @@ against a pack energy the user sets in Settings.
   map showed a permanently red 52° SoC pin while the "Hottest" readout an inch below it,
   which did exclude `tcal`, said 44°. `ZoneTemperatures.hottest` is the live-only
   maximum; `readings` keeps everything, with constants sorted last.
-- Four separate sensors are all named `gas gauge battery`. `HIDSensors.Reading.id`
+- **Sensors are identified by SMC key, not name.** Each service's `LocationID` is the
+  four-letter SMC key in ASCII (`0x49513075` = `IQ0u`); `HIDSensors.Reading.key` carries
+  it, and Raw data prints it beside the name. Names repeat across keys (`PMU tdie1` is
+  both TP1b and TP1l), and **iOS 27 publishes every key through two services** — every
+  sensor appears twice in an iPhone 18 Pro Max dump. `PowerSnapshot.mergingCopies`
+  averages the copies of a key into one reading, never sums them: ChargeSpeed found one
+  service read twice 2 ms apart varies as much as the copies differ, and meters matched
+  a single copy at 14–30 W. Everything derived reads `PowerSnapshot.readings`, the merged
+  list; `sensors` stays unedited for Raw data. A service with no key falls back to its name.
+- Four separate sensors are all named `gas gauge battery` (ChargeSpeed: TG0B, TG0C, TG0H,
+  TG0V; TG0B is the one that runs hot). `HIDSensors.Reading.id`
   therefore includes the service index — name alone gave `ForEach` duplicate ids.
   `PowerSnapshot.batteryTemperature` now uses the median of the live battery-zone
   readings, so one duplicate service reporting a high value cannot become the phone's
@@ -267,8 +282,10 @@ against a pack energy the user sets in Settings.
   data shows unedited, and never reaches a zone, the heat map or a widget.
   `registryTemperature` goes through the same check, since its ÷100 scaling is only
   known to hold on the models checked here.
-  Only temperature is filtered — volts and amps have shown no comparable sentinel, and
-  a range tight enough to catch one would risk hiding a real rail on an unseen model.
+  Only temperature is filtered. Volts and amps do have sentinels — iOS 27 PMU rails
+  (`ildo*`, `vbuck*`, `vldo*`) read 14,800–16,450 or below −17,000, an iPad's `vldo*`
+  4294.96 — but no derived value reads those rails, and a range tight enough to catch
+  them would risk hiding a real rail on an unseen model.
   This catches impossible values, not merely wrong ones: Settings → About and the
   Thermal page both say which model the build was verified on, because a mis-scaled
   reading that still looks plausible cannot be caught in code.
@@ -292,6 +309,29 @@ against a pack energy the user sets in Settings.
   utilisation is worked out, and the path-resistance figures refuse — and the Power and
   Adapter pages say why. The check cannot catch a short reading on a model whose
   cell-side sensor is also short, or absent.
+
+  **The iPhone 18 Pro is exactly that model.** ChargeSpeed's author measured the onset
+  on their own 18 Pro Max: input ramped to ~23 W, sat at `IQ0u` ≈ 1.5 A for ~7 s, read
+  30 W for 2 s, then half — and `IQ0B` halved at the same tick. Issue #16's dump after
+  v1.5.1 agrees: 21.6 W in, 19.3 W into the cell, so the check above never fires. One
+  user reports readings agree again above about 70 %. Two things answer it, neither of
+  which changes a number:
+  - `PowerSnapshot.mayReadHalfInput` (iPhone19,x, wired, negotiated profile > 30 W) is a
+    caution, not a detection: no sensor tells the modes apart, and ChargeSpeed removed a
+    "current pinned at half the contract" detector after it nearly fired on an ordinary
+    pause. While it holds, the cable figures (`inputPathMilliohms`,
+    `inputCurrentUtilisation`, the resistance fit) refuse, since a halved current would
+    be blamed on the cable, and the Adapter page shows the caution instead of its
+    headroom reason.
+  - `LevelRateCheck`, in `PowerMonitor`, sets the battery level's rise (as watts, against
+    the pack energy) beside the integral of the cell sensors' watts over the same
+    stretch — the one comparison that does not lean on the sensors being checked. It
+    needs a 3 % rise over 90 s, 90 % of it watched; a ratio ≥ 1.6 says the sensors are
+    short, 0.7–1.3 agrees, and an agreeing check hides the caution. It is coarse — the
+    level is costed at 3.87 V while the sensors use the real ~4.2 V, and a worn pack
+    holds less than its rating — so the bands are wide.
+  Not verified on an 18 Pro: either the check's ratio there, or that powerd's level
+  rises at the rate of the whole charge.
 
 ## Widgets and Live Activity
 

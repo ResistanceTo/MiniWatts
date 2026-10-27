@@ -87,7 +87,10 @@ struct DebugView: View {
                     ForEach(monitor.snapshot.sensors
                         .filter { matches($0.name, $0.formatted) }
                         .sorted { $0.name < $1.name }) { reading in
-                        DetailRow(rawLabel: "[\(reading.index)] \(reading.name)", value: reading.formatted)
+                        DetailRow(rawLabel: reading.key.isEmpty
+                                      ? "[\(reading.index)] \(reading.name)"
+                                      : "[\(reading.index)] \(reading.name) (\(reading.key))",
+                                  value: reading.formatted)
                     }
                 }
             }
@@ -276,15 +279,32 @@ struct DebugView: View {
         lines.append(contentsOf: monitor.diagnostics)
         lines.append("\n# Sensors")
         lines.append(contentsOf: monitor.snapshot.sensors.sorted { ($0.name, $0.index) < ($1.name, $1.index) }
-            .map { "[\($0.index)] \($0.name) = \($0.formatted)" })
+            .map { $0.key.isEmpty
+                ? "[\($0.index)] \($0.name) = \($0.formatted)"
+                : "[\($0.index)] \($0.name) (\($0.key)) = \($0.formatted)" })
+        if monitor.snapshot.mergedCopyCount > 0 {
+            lines.append("(\(monitor.snapshot.mergedCopyCount) services are second copies of a key and are averaged with the first in derived values)")
+        }
         if !monitor.snapshot.temperatureWarnings.isEmpty {
             lines.append("\n# Derived temperature filters")
             lines.append(contentsOf: monitor.snapshot.temperatureWarnings)
         }
+        var powerLines: [String] = []
         if let partial = monitor.snapshot.partialInputWatts, let cell = monitor.snapshot.batteryWatts {
-            lines.append("\n# Derived power filters")
-            lines.append(String(format: "input sensors = %.2f W, into cell = %.2f W — input excluded from derived values: less than the cell receives",
-                                partial, cell))
+            powerLines.append(String(format: "input sensors = %.2f W, into cell = %.2f W — input excluded from derived values: less than the cell receives",
+                                     partial, cell))
+        }
+        if monitor.snapshot.mayReadHalfInput {
+            powerLines.append("iPhone19,x on a wired profile above 30 W — readings may be about half; cable figures withheld")
+        }
+        if let check = monitor.levelRateCheck {
+            powerLines.append(String(format: "level check: +%d%% in %.0f s = %.2f W at %.2f Wh, cell sensors %.2f W, ratio %.2f — %@",
+                                     check.percentRise, check.span, check.levelWatts, check.packWattHours,
+                                     check.cellWatts, check.ratio, String(describing: check.verdict)))
+        }
+        if !powerLines.isEmpty {
+            lines.append("\n# Derived power checks")
+            lines.append(contentsOf: powerLines)
         }
         if !inventory.isEmpty {
             lines.append("\n# HID inventory")

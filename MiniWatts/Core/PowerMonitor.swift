@@ -25,6 +25,9 @@ final class PowerMonitor {
     /// Watts estimated from how fast the percentage moves. The only way to see
     /// discharge power: no discharge-current sensor is exposed to a sandboxed app.
     private(set) var rateEstimateWatts: Double?
+    /// The level's rise against the cell sensors over the same stretch, while
+    /// charging. See `LevelRateCheck`.
+    private(set) var levelRateCheck: LevelRateCheck?
     /// Resistance of the whole charging path — charger, cable, both plugs — inferred
     /// from how the port voltage sags as the current rises. Nil until the current
     /// has moved far enough for the fit to mean anything. See `PathResistanceMeter`.
@@ -91,7 +94,42 @@ final class PowerMonitor {
     }
 
     var sensorsAvailable: Bool { sensorServiceCount > 0 }
-    var deviceModelIdentifier: String { Self.machineIdentifier }
+    var deviceModelIdentifier: String {
+        #if targetEnvironment(simulator)
+        return "\(PowerSnapshot.modelIdentifier) (simulator)"
+        #else
+        return PowerSnapshot.modelIdentifier
+        #endif
+    }
+
+    /// A rated pack energy for the models one has been found for, with where it came
+    /// from. It only sets the default: a value entered in Settings always wins.
+    struct ModelRating: Sendable {
+        let wattHours: Double
+        let source: String
+    }
+
+    /// Kept short on purpose. Every entry is a figure someone checked, and a wrong
+    /// default is worse than the generic one — the user sees a number, not a guess.
+    ///
+    /// - iPhone 18 Pro Max (iPhone19,7 from issue #16's dump; iPhone19,3 per
+    ///   ChargeSpeed): 5,567 mAh in iFixit's teardown, 21.75 Wh.
+    /// - iPhone 17 Pro Max (iPhone18,2): 5,088 mAh × 3.87 V, 19.7 Wh, ChargeSpeed's
+    ///   figure, which its author notes was not checked against a source. That is the
+    ///   eSIM-only pack; models with a SIM tray are listed smaller.
+    static let modelRating: ModelRating? = {
+        switch PowerSnapshot.modelIdentifier {
+        case "iPhone19,3", "iPhone19,7":
+            return ModelRating(wattHours: 21.75, source: "iFixit teardown, 5,567 mAh")
+        case "iPhone18,2":
+            return ModelRating(wattHours: 19.7, source: "5,088 mAh × 3.87 V")
+        default:
+            return nil
+        }
+    }()
+
+    /// What the pack energy starts at before anything is set in Settings.
+    static var defaultBatteryWattHours: Double { modelRating?.wattHours ?? 15.0 }
 
     // MARK: Private
 
@@ -130,7 +168,14 @@ final class PowerMonitor {
     /// while it is still in flight would otherwise have the file's contents merged
     /// back in on top of it a moment later.
     private var discardedStoredSessions = false
-    private var percentLog: [(date: Date, percent: Int)] = []
+    /// Each moment the level changed, with the running cell-sensor energy at that
+    /// moment, so the level's rise and the sensors can be compared over one stretch.
+    private var percentLog: [(date: Date, percent: Int, cellWattHours: Double, cellSeconds: TimeInterval)] = []
+    /// Running integral of the cell sensors' watts, and how many seconds of it were
+    /// actually observed. Only differences between two log entries are ever used.
+    private var cellWattHours: Double = 0
+    private var cellSeconds: TimeInterval = 0
+    private var lastCellSample: (date: Date, watts: Double)?
     private var lastChargingFlag: Bool?
     private var lastRateObservationDate: Date?
     private var stableHoldState: ChargeHoldState?
@@ -145,7 +190,7 @@ final class PowerMonitor {
     init() {
         let defaults = UserDefaults.standard
         let stored = defaults.double(forKey: Self.wattHoursKey)
-        configuredBatteryWattHours = stored > 0 ? stored : 15.0
+        configuredBatteryWattHours = stored > 0 ? stored : Self.defaultBatteryWattHours
         // Defaults to on: recording a whole charge is the point of the History tab,
         // and it cannot happen if the screen locks after thirty seconds.
         keepScreenAwakeWhileCharging = defaults.object(forKey: Self.keepAwakeKey) as? Bool ?? true
@@ -474,8 +519,10 @@ final class PowerMonitor {
     /// Tracks 1 % transitions and converts the slope into watts. Two transitions
     /// are needed because the first sample lands mid-percent.
     private func updateRateEstimate(_ snapshot: PowerSnapshot) {
+        integrateCellEnergy(snapshot)
         guard let percent = snapshot.percent else {
             rateEstimateWatts = nil
+            levelRateCheck = nil
             lastRateObservationDate = nil
             return
         }
@@ -491,6 +538,7 @@ final class PowerMonitor {
                 // that hole would look like a near-zero discharge rate.
                 percentLog.removeAll()
                 rateEstimateWatts = nil
+                levelRateCheck = nil
             } else if gap > Self.rateContinuityInterval, percentLog.last?.percent != percent {
                 // A short hole, and the level moved somewhere inside it. When is
                 // not known — only that it was before now — and stamping it now
@@ -508,16 +556,64 @@ final class PowerMonitor {
             lastChargingFlag = snapshot.isCharging
             percentLog.removeAll()
             rateEstimateWatts = nil
+            levelRateCheck = nil
         }
         if percentLog.last?.percent != percent {
-            percentLog.append((snapshot.date, percent))
+            percentLog.append((snapshot.date, percent, cellWattHours, cellSeconds))
             if percentLog.count > 7 { percentLog.removeFirst(percentLog.count - 7) }
         }
         let transitions = percentLog.dropFirst()
         guard transitions.count >= 2, let first = transitions.first, let last = transitions.last else { return }
         let hours = last.date.timeIntervalSince(first.date) / 3600
         guard hours > 0 else { return }
-        rateEstimateWatts = Double(last.percent - first.percent) / 100 * batteryWattHours / hours
+        let estimate = Double(last.percent - first.percent) / 100 * batteryWattHours / hours
+        rateEstimateWatts = estimate
+        updateLevelRateCheck(levelWatts: estimate, from: first, to: last, charging: snapshot.isCharging)
+    }
+
+    /// Adds this tick's cell-sensor watts to the running integral, trapezoid by
+    /// trapezoid. Only intervals that were watched continuously and read at both
+    /// ends count; `cellSeconds` records how much that was, so a stretch the sensors
+    /// were missing from is visible as missing rather than read as zero.
+    private func integrateCellEnergy(_ snapshot: PowerSnapshot) {
+        guard snapshot.isCharging, let watts = snapshot.batteryWatts else {
+            lastCellSample = nil
+            return
+        }
+        if let previous = lastCellSample {
+            let step = snapshot.date.timeIntervalSince(previous.date)
+            if step > 0, step <= Self.rateContinuityInterval {
+                cellWattHours += (previous.watts + watts) / 2 * step / 3600
+                cellSeconds += step
+            }
+        }
+        lastCellSample = (snapshot.date, watts)
+    }
+
+    /// Sets the level against the cell sensors over the stretch the %-rate estimate
+    /// was just taken from. Leaves the last result up when this stretch cannot say
+    /// anything — too short, too little rise, or too much of it unwatched.
+    private func updateLevelRateCheck(levelWatts: Double,
+                                      from first: (date: Date, percent: Int, cellWattHours: Double, cellSeconds: TimeInterval),
+                                      to last: (date: Date, percent: Int, cellWattHours: Double, cellSeconds: TimeInterval),
+                                      charging: Bool) {
+        guard charging else {
+            levelRateCheck = nil
+            return
+        }
+        let span = last.date.timeIntervalSince(first.date)
+        let rise = last.percent - first.percent
+        let watched = last.cellSeconds - first.cellSeconds
+        let energy = last.cellWattHours - first.cellWattHours
+        guard rise >= LevelRateCheck.minimumRise, span >= LevelRateCheck.minimumSpan,
+              watched >= span * 0.9, energy > 0 else { return }
+        let cellWatts = energy / (watched / 3600)
+        guard cellWatts >= LevelRateCheck.minimumCellWatts, levelWatts > 0 else { return }
+        levelRateCheck = LevelRateCheck(levelWatts: levelWatts,
+                                        cellWatts: cellWatts,
+                                        packWattHours: batteryWattHours,
+                                        percentRise: rise,
+                                        span: span)
     }
 
     // MARK: Headline
@@ -559,7 +655,7 @@ final class PowerMonitor {
         lines.append("IOKit: \(probeService.batteryAvailable ? "loaded" : "unavailable")")
         lines.append("HID sensors: \(probeService.hidAvailable ? "\(sensorServiceCount) services" : "unavailable")")
         lines.append("BatteryCenter: \(batteryCenter.status) via \(batteryCenter.controllerOrigin)")
-        lines.append("Device: \(Self.machineIdentifier)")
+        lines.append("Device: \(deviceModelIdentifier)")
         #if targetEnvironment(simulator)
         lines.append("Simulator: IOKit reads the Mac's battery, HID sensors are absent.")
         #endif
@@ -584,20 +680,4 @@ final class PowerMonitor {
     func accessoryProbe() -> AccessoryProbe.Report? {
         AccessoryProbe()?.run()
     }
-
-    private static let machineIdentifier: String = {
-        // Inside a simulator `uname` reports the Mac's architecture, so the
-        // simulated model identifier is taken from the environment instead.
-        if let simulated = ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"] {
-            return "\(simulated) (simulator)"
-        }
-        var info = utsname()
-        guard uname(&info) == 0 else { return "unknown" }
-        // `info.machine` is a fixed-size C array; mirroring it avoids taking an
-        // overlapping pointer to the struct that is still being written.
-        return Mirror(reflecting: info.machine).children.reduce(into: "") { result, element in
-            guard let byte = element.value as? Int8, byte != 0 else { return }
-            result.append(Character(UnicodeScalar(UInt8(byte))))
-        }
-    }()
 }

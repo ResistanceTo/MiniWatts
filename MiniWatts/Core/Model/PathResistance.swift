@@ -73,8 +73,9 @@ nonisolated final class PathResistanceMeter {
         init?(_ snapshot: PowerSnapshot) {
             // A current sensor that sees only part of the input would fit a slope to
             // the wrong current and report a resistance that is off by the same factor.
+            // That includes an 18 Pro at high power, where it may not be detectable.
             guard snapshot.externalConnected, !snapshot.isWirelessInput, !snapshot.adapterIsWireless,
-                  snapshot.partialInputWatts == nil
+                  snapshot.partialInputWatts == nil, !snapshot.mayReadHalfInput
             else { return nil }
             adapter = [snapshot.adapterName, snapshot.adapterSerial, snapshot.adapterModel]
                 .compactMap { $0 }.joined(separator: "|")

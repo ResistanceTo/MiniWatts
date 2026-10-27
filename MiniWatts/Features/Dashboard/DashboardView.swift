@@ -50,6 +50,11 @@ struct DashboardView: View {
                     if snapshot.isWirelessInput {
                         Pill(text: Text("MagSafe"), systemImage: "wave.3.right", tint: .mwWireless)
                     }
+                    if monitor.levelRateCheck?.verdict == .sensorsShort {
+                        Pill(text: Text("reading low"), systemImage: "exclamationmark.triangle.fill", tint: .mwDanger)
+                    } else if InputShortfallNotes.applies(to: snapshot, check: monitor.levelRateCheck) {
+                        Pill(text: Text("may read half"), systemImage: "exclamationmark.triangle", tint: .mwLoss)
+                    }
                     if snapshot.holdIsInferred {
                         Pill(text: Text("inferred"), systemImage: "questionmark.circle", tint: .mwLoss)
                     }
@@ -191,6 +196,9 @@ struct DashboardView: View {
                 }
                 if let partial = snapshot.partialInputWatts, let battery = snapshot.batteryWatts {
                     PartialInputNote(sensedWatts: partial, cellWatts: battery)
+                }
+                if plugged {
+                    InputShortfallNotes(snapshot: snapshot, check: monitor.levelRateCheck)
                 }
                 if wirelessInputUnmeasurable {
                     EmptyNote(text: "Charging wirelessly. The charge IC exposes the coil's voltage but no current to pair with it, so the power coming in cannot be measured — only what reaches the cell. The figure the charger reports about itself is a ceiling, not a reading, and does not move.",

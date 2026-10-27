@@ -63,6 +63,10 @@ struct AdapterView: View {
 
                 if let partial = snapshot.partialInputWatts, let battery = snapshot.batteryWatts {
                     PartialInputNote(sensedWatts: partial, cellWatts: battery)
+                } else if InputShortfallNotes.applies(to: snapshot, check: monitor.levelRateCheck) {
+                    // In place of `headroomReason`: a half reading looks exactly like a
+                    // phone drawing half the rating, and would be blamed on the cable.
+                    InputShortfallNotes(snapshot: snapshot, check: monitor.levelRateCheck, showsAgreement: false)
                 } else if snapshot.inputWatts == nil, snapshot.adapterIsWireless {
                     EmptyNote(text: "Wireless charging has no input-current sensor, so there is nothing to compare against the rating. The voltage and current below are the profile the pad negotiated — a ceiling that stays put while the actual draw moves.",
                               systemImage: "wave.3.right")

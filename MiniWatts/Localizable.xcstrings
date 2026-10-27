@@ -44,6 +44,26 @@
         }
       }
     },
+    "Battery level check: rising at about %@ W against %@ W measured at the cell — too far apart to agree, too close to call. It is worked out for a %@ Wh battery; if that is not your phone's, set it in Settings." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "电量核对：按电量上升推算约 %1$@ W，电芯实测为 %2$@ W —— 差距大到不算一致，又不足以下结论。以上按 %3$@ Wh 的电池能量计算；如果与你的手机不符，请在设置中修改。"
+          }
+        }
+      }
+    },
+    "Battery level check: rising at about %@ W, in line with the %@ W the cell sensors measure." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "电量核对：按电量上升推算约 %1$@ W，与电芯传感器测得的 %2$@ W 一致。"
+          }
+        }
+      }
+    },
     "Cable and connection" : {
       "localizations" : {
         "zh-Hans" : {
@@ -184,12 +204,32 @@
         }
       }
     },
+    "may read half" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可能只读到一半"
+          }
+        }
+      }
+    },
     "of the current on offer" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "占可用电流"
+          }
+        }
+      }
+    },
+    "On the iPhone 18 Pro, wired charging above about 30 W can read about half on every sensor here: people with an inline meter saw the input and the cell figures both at half the real power. Nothing is corrected. Once the battery level has risen a few percent, it is used to check." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 iPhone 18 Pro 上，有线充电超过约 30 W 时，这里所有传感器的读数都可能只有实际的一半：有用户串接功率计测得，输入和电芯两侧的数值都只有实际功率的一半。这里不做修正。电量上升几个百分点后，会用电量变化来核对。"
           }
         }
       }
@@ -214,12 +254,32 @@
         }
       }
     },
+    "Rated for this model: %@ Wh (%@)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机型额定：%1$@ Wh（%2$@）"
+          }
+        }
+      }
+    },
     "Reading" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "读数"
+          }
+        }
+      }
+    },
+    "reading low" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "读数偏低"
           }
         }
       }
@@ -250,6 +310,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "温度单位"
+          }
+        }
+      }
+    },
+    "The battery level is rising %@× as fast as the cell sensors account for — about %@ W from the level against %@ W measured — so they are seeing only part of the charge, and the figures here are low. Nothing is corrected. Worked out for a %@ Wh battery; the right value for yours goes in Settings." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "电量上升的速度是电芯传感器所能解释的 %1$@ 倍 —— 按电量推算约 %2$@ W，实测只有 %3$@ W —— 说明传感器只测到了部分充电功率，这里的数值偏低。这里不做修正。以上按 %4$@ Wh 的电池能量计算；你的手机的正确数值请在设置中填写。"
           }
         }
       }
@@ -290,6 +360,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "单位"
+          }
+        }
+      }
+    },
+    "Use" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用"
+          }
+        }
+      }
+    },
+    "Used for the %-rate estimate, which is the sole way to see discharge power — no discharge-current sensor is exposed to a sandboxed app — and for checking the charging sensors against how fast the battery level rises. Look up your model's rating and enter it here." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用于百分比变化率估算（这是查看放电功率的唯一方式，沙盒应用无法访问任何放电电流传感器），也用于根据电量上升的速度核对充电传感器的读数。请查询你机型的额定能量并在此输入。"
           }
         }
       }
@@ -2111,16 +2201,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "USB-C 输入电压"
-          }
-        }
-      }
-    },
-    "Used only for the %-rate estimate, which is the sole way to see discharge power: no discharge-current sensor is exposed to a sandboxed app. Look up your model's rating — an iPhone 17 Pro Max is about 19.7 Wh — and enter it here." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "仅用于百分比变化率估算，这也是查看放电功率的唯一方式：沙盒应用无法访问任何放电电流传感器。请查询您机型的额定能量（例如 iPhone 17 Pro Max 约为 19.7 Wh）并在此输入。"
           }
         }
       }

@@ -228,10 +228,24 @@ struct SettingsView: View {
                     Stepper("", value: capacity, in: 5...40, step: 0.1)
                         .labelsHidden()
                 }
-                Text("Used only for the %-rate estimate, which is the sole way to see discharge power: no discharge-current sensor is exposed to a sandboxed app. Look up your model's rating — an iPhone 17 Pro Max is about 19.7 Wh — and enter it here.")
+                Text("Used for the %-rate estimate, which is the sole way to see discharge power — no discharge-current sensor is exposed to a sandboxed app — and for checking the charging sensors against how fast the battery level rises. Look up your model's rating and enter it here.")
                     .font(.caption)
                     .foregroundStyle(Color.mwMuted)
                     .fixedSize(horizontal: false, vertical: true)
+                if let rating = PowerMonitor.modelRating {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("Rated for this model: \(String(format: "%.2f", rating.wattHours)) Wh (\(rating.source))")
+                            .font(.caption)
+                            .foregroundStyle(Color.mwMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer()
+                        if abs(capacity.wrappedValue - rating.wattHours) > 0.05 {
+                            Button("Use") { capacity.wrappedValue = rating.wattHours }
+                                .font(.caption.weight(.semibold))
+                                .tint(.mwAccent)
+                        }
+                    }
+                }
                 if let designCapacity = monitor.snapshot.designCapacity, designCapacity > 0 {
                     EmptyNote(text: "IOKit reported a design capacity of \(designCapacity) mAh on this system, so that value is being used instead.",
                               systemImage: "checkmark.circle")

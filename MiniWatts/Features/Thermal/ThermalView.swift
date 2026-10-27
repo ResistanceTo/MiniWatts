@@ -207,7 +207,9 @@ struct ThermalView: View {
     /// How one sensor is labelled: the translated name when we recognise it, with
     /// the hardware name kept underneath, and the bare hardware name when we do not.
     private func sensorSource(_ reading: HIDSensors.Reading) -> Text {
-        Text(verbatim: "\(reading.name) · #\(reading.index)")
+        Text(verbatim: reading.key.isEmpty
+             ? "\(reading.name) · #\(reading.index)"
+             : "\(reading.name) · \(reading.key) · #\(reading.index)")
     }
 
     private func sensorLabels(_ reading: HIDSensors.Reading) -> (title: Text, subtitle: Text?) {

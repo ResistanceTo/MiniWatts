@@ -66,6 +66,11 @@ nonisolated struct PowerSnapshot: @unchecked Sendable {
 
     // MARK: - Derived from the sensors, resolved once
 
+    /// `sensors` with each SMC key's copies merged into one reading — see
+    /// `mergingCopies`. Everything derived below is read from this list; `sensors`
+    /// stays as the services reported it, for Raw data.
+    let readings: [HIDSensors.Reading]
+
     /// Every temperature sensor, in the order the services were enumerated.
     let temperatures: [HIDSensors.Reading]
     /// Temperature sensors grouped by where they sit in the phone.
@@ -130,15 +135,20 @@ nonisolated struct PowerSnapshot: @unchecked Sendable {
         self.chargeStatus = chargeStatus
         self.holdStateOverride = nil
         let externalConnected = Self.externalConnected(registry: registry, powerSource: powerSource)
+        let readings = Self.mergingCopies(sensors)
+        self.readings = readings
 
         // Names repeat — an iPhone 17 reports four separate sensors all called
         // "gas gauge battery" — so first wins, which is what a linear `first(where:)`
-        // over the service list used to do.
+        // over the service list used to do. Lookups go by SMC key first; the name is
+        // the fallback for a service that publishes no key.
         var byName: [String: HIDSensors.Reading] = [:]
+        var byKey: [String: HIDSensors.Reading] = [:]
         var temperatures: [HIDSensors.Reading] = []
         var temperatureWarnings: [String] = []
-        for reading in sensors {
+        for reading in readings {
             if byName[reading.name] == nil { byName[reading.name] = reading }
+            if !reading.key.isEmpty, byKey[reading.key] == nil { byKey[reading.key] = reading }
             // A reading on the temperature page that no phone could produce is not a
             // temperature — it is a sentinel or a raw counter, and it used to be drawn
             // on the heat map as if it were a reading. It stays in `sensors`, which
@@ -150,7 +160,7 @@ nonisolated struct PowerSnapshot: @unchecked Sendable {
                 continue
             }
             if let reason = Self.derivedTemperatureRejectionReason(for: reading,
-                                                                    allSensors: sensors,
+                                                                    allSensors: readings,
                                                                     externalConnected: externalConnected) {
                 temperatureWarnings.append(Self.temperatureWarning(for: reading, reason: reason))
                 continue
@@ -160,24 +170,27 @@ nonisolated struct PowerSnapshot: @unchecked Sendable {
         self.temperatures = temperatures
         self.temperatureWarnings = temperatureWarnings
 
-        func named(_ name: String) -> Double? { byName[name]?.value }
+        /// The reading for an SMC key, or failing that the first one with this name.
+        func sensor(_ key: String, _ name: String) -> Double? {
+            (byKey[key] ?? byName[name])?.value
+        }
         func rail(_ kind: HIDSensors.Kind, _ fragments: [String]) -> Double? {
-            sensors.first { reading in
+            readings.first { reading in
                 reading.kind == kind && fragments.contains { reading.name.localizedCaseInsensitiveContains($0) }
             }?.value
         }
 
-        let usbVoltage = named("Charger VQ0u") ?? rail(.voltage, ["VQ0u"])
-        let usbCurrent = named("Charger IQ0u") ?? rail(.current, ["IQ0u"])
+        let usbVoltage = sensor("VQ0u", "Charger VQ0u") ?? rail(.voltage, ["VQ0u"])
+        let usbCurrent = sensor("IQ0u", "Charger IQ0u") ?? rail(.current, ["IQ0u"])
         // Matched on the rail rather than the full name: "Q1u" is the charge IC's
         // second upstream port, which is where the wireless coil lands. Naming varies
         // between phone models, and a current sensor for this rail may not exist at
         // all — on the models checked so far only the voltage is exposed.
-        let coilVoltage = rail(.voltage, ["Q1u"])
-        let coilCurrent = rail(.current, ["Q1u"])
-        let cellCurrent = named("Charger IQ0B") ?? rail(.current, ["IQ0B"])
-        let cellVoltage = named("Charger VQ0l")
-            ?? named("PMU VP0u")
+        let coilVoltage = byKey["VQ1u"]?.value ?? rail(.voltage, ["Q1u"])
+        let coilCurrent = byKey["IQ1u"]?.value ?? rail(.current, ["Q1u"])
+        let cellCurrent = sensor("IQ0B", "Charger IQ0B") ?? rail(.current, ["IQ0B"])
+        let cellVoltage = sensor("VQ0l", "Charger VQ0l")
+            ?? sensor("VP0u", "PMU VP0u")
             ?? rail(.voltage, ["VQ0l", "VP0u"])
 
         usbInputVoltage = usbVoltage
@@ -354,6 +367,86 @@ nonisolated struct PowerSnapshot: @unchecked Sendable {
     }
 
     // MARK: - Sensors
+
+    /// One reading per SMC key: the copies of a key averaged, in the position of its
+    /// first copy. Readings without a key pass through untouched.
+    ///
+    /// iOS 27 publishes every key through two services — an iPhone 18 Pro Max dump has
+    /// `Charger IQ0B` at 4.502 and 4.626 A, and every other sensor twice as well. They
+    /// are one signal read a moment apart, not two paths to be added: ChargeSpeed found
+    /// a single service read twice 2 ms apart varies as much as the two copies differ,
+    /// the static ALS key reads identically on both, and users with inline meters saw
+    /// one copy match the meter at 14–30 W. So the copies are averaged, never summed.
+    ///
+    /// The kind is part of the identity because a key is only meaningful on its page.
+    static func mergingCopies(_ sensors: [HIDSensors.Reading]) -> [HIDSensors.Reading] {
+        struct Identity: Hashable { let key: String; let kind: HIDSensors.Kind }
+        var sums: [Identity: (total: Double, count: Int)] = [:]
+        for reading in sensors where !reading.key.isEmpty {
+            let identity = Identity(key: reading.key, kind: reading.kind)
+            let sum = sums[identity] ?? (0, 0)
+            sums[identity] = (sum.total + reading.value, sum.count + 1)
+        }
+        guard sums.values.contains(where: { $0.count > 1 }) else { return sensors }
+        var emitted = Set<Identity>()
+        return sensors.compactMap { reading in
+            guard !reading.key.isEmpty else { return reading }
+            let identity = Identity(key: reading.key, kind: reading.kind)
+            guard emitted.insert(identity).inserted, let sum = sums[identity] else { return nil }
+            guard sum.count > 1 else { return reading }
+            return HIDSensors.Reading(name: reading.name,
+                                      kind: reading.kind,
+                                      value: sum.total / Double(sum.count),
+                                      key: reading.key,
+                                      index: reading.index)
+        }
+    }
+
+    /// How many services were folded into another one's reading by `mergingCopies`.
+    var mergedCopyCount: Int { sensors.count - readings.count }
+
+    /// The device's model identifier, e.g. "iPhone19,7". In the simulator, the model
+    /// being simulated.
+    static let modelIdentifier: String = {
+        // Inside a simulator `uname` reports the Mac's architecture, so the
+        // simulated model identifier is taken from the environment instead.
+        if let simulated = ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"] {
+            return simulated
+        }
+        var info = utsname()
+        guard uname(&info) == 0 else { return "unknown" }
+        // `info.machine` is a fixed-size C array; mirroring it avoids taking an
+        // overlapping pointer to the struct that is still being written.
+        return Mirror(reflecting: info.machine).children.reduce(into: "") { result, element in
+            guard let byte = element.value as? Int8, byte != 0 else { return }
+            result.append(Character(UnicodeScalar(UInt8(byte))))
+        }
+    }()
+
+    /// The iPhone 18 Pro generation (iPhone19,x), where wired charging above about
+    /// 30 W reads about half on every sensor this app can see.
+    ///
+    /// Measured by two MiniWatts users with an inline meter and a charger display (#10,
+    /// #16 — iPhone19,7, 14.55 V × 2.99 A against `IQ0u` 1.513 A) and by ChargeSpeed's
+    /// author on their own 18 Pro Max, who also saw `IQ0B` halve at the same tick as
+    /// `IQ0u`. That is why `partialInputWatts` cannot catch it: the cell side reads
+    /// short too, so it never exceeds the input. Readings agreed at 14 W and 26 W, and
+    /// one user reports they agree again above about 70 %. The inference — a second
+    /// charging path with no readable sensor — is not verified.
+    static let readsHalfAtHighPower = modelIdentifier.hasPrefix("iPhone19,")
+
+    /// True when the half reading *can* apply: an 18 Pro on a wired adapter whose
+    /// negotiated profile offers more than 30 W.
+    ///
+    /// A caution, not a detection. Nothing the sensors report tells the two modes
+    /// apart: ChargeSpeed tried "metered current pinned at half the contract" and
+    /// removed it after it nearly fired on an ordinary pause at 1.5 A. The level-rate
+    /// check in `PowerMonitor` is what can tell, minutes later.
+    var mayReadHalfInput: Bool {
+        guard Self.readsHalfAtHighPower, externalConnected, !adapterIsWireless,
+              let profile = negotiatedProfile else { return false }
+        return profile.watts > 30
+    }
 
     /// The hottest live sensor in a zone. Nil when the zone is absent, or holds
     /// nothing but calibration constants.
@@ -549,7 +642,7 @@ nonisolated struct PowerSnapshot: @unchecked Sendable {
     /// divide, and dividing by a near-zero current would produce a large number out
     /// of nothing, so it goes nil instead.
     var inputPathMilliohms: Double? {
-        guard partialInputWatts == nil, let drop = inputVoltageDropVolts, drop > 0,
+        guard partialInputWatts == nil, !mayReadHalfInput, let drop = inputVoltageDropVolts, drop > 0,
               let current = usbInputCurrent, current >= Self.measurableInputAmps
         else { return nil }
         return drop / current * 1000
@@ -557,7 +650,9 @@ nonisolated struct PowerSnapshot: @unchecked Sendable {
 
     /// What the phone is taking as a share of the current the adapter offered, 0…1.
     var inputCurrentUtilisation: Double? {
-        guard !isWirelessInput, partialInputWatts == nil, let current = usbInputCurrent,
+        // A current that may be half the real one would make a full-power charge look
+        // like a phone holding back, and `isInputSagging` would blame the cable.
+        guard !isWirelessInput, partialInputWatts == nil, !mayReadHalfInput, let current = usbInputCurrent,
               let ceiling = adapterCurrentMilliamps, ceiling > 0 else { return nil }
         return current / (Double(ceiling) / 1000)
     }
