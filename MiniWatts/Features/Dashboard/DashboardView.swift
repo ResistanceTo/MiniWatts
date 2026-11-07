@@ -12,6 +12,7 @@ struct DashboardView: View {
             heroPanel
             if monitor.thermal.state.isThrottling { throttleBanner }
             batteryPanel
+            forecastPanel
             breakdownPanel
             livePanel
             sessionPanel
@@ -152,13 +153,65 @@ struct DashboardView: View {
                            tint: (snapshot.batteryCurrent ?? 0) > 0 ? .mwBattery : .primary,
                            size: 20)
                     Metric(caption: "Cell temp",
-                           value: snapshot.batteryTemperature.map { String(format: "%.1f", $0) } ?? "—",
-                           unit: "°C",
+                           value: snapshot.batteryTemperature.map { monitor.temperatureUnit.number($0) } ?? "—",
+                           unit: monitor.temperatureUnit.symbol,
                            tint: snapshot.batteryTemperature.map { Color.mwTemperature($0) } ?? .primary,
                            size: 20)
                 }
             }
         }
+    }
+
+    // MARK: Forecast
+
+    /// Time to 80 % and to full, asked for in #27. Only while the battery is actually
+    /// charging: on hold, full, or on battery there is nothing to count down to.
+    @ViewBuilder
+    private var forecastPanel: some View {
+        if plugged, snapshot.isCharging, !snapshot.isChargingOnHold,
+           let percent = snapshot.percent, percent < 100 {
+            Panel("Charge forecast", systemImage: "clock") {
+                if let forecast = monitor.chargeForecast {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .top, spacing: 10) {
+                            if percent < ChargeForecast.taperStart {
+                                Metric(caption: "To 80%",
+                                       value: Self.duration(forecast.secondsRemaining(to: 80, from: percent, at: snapshot.date)),
+                                       tint: .mwBattery,
+                                       footnote: Self.arrival(forecast.secondsRemaining(to: 80, from: percent, at: snapshot.date),
+                                                              after: snapshot.date),
+                                       size: 22)
+                            }
+                            Metric(caption: "To 100%",
+                                   value: Self.duration(forecast.secondsRemaining(to: 100, from: percent, at: snapshot.date)),
+                                   tint: .mwBattery,
+                                   footnote: Self.arrival(forecast.secondsRemaining(to: 100, from: percent, at: snapshot.date),
+                                                          after: snapshot.date),
+                                   size: 22)
+                        }
+                        Text("Worked out from how fast the level has been rising — \(forecast.measuredRise)% in the last \(Formatting.duration(forecast.measuredSpan)). Charging slows past 80%, so the time beyond it follows a typical charging curve and is approximate. A charge limit or Optimized Charging stops the battery short of 100%.")
+                            .font(.caption2)
+                            .foregroundStyle(Color.mwMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } else {
+                    EmptyNote(text: "Waiting for the battery level to move twice. The forecast comes from how fast it actually rises, so it takes a few minutes to appear.",
+                              systemImage: "clock")
+                }
+            }
+        }
+    }
+
+    /// "38m", "1h 38m", in the locale's own words for hours and minutes. Never under a
+    /// minute: a countdown to "0m" reads as already there.
+    private static func duration(_ seconds: TimeInterval) -> String {
+        let minutes = max((seconds / 60).rounded(), 1)
+        return Duration.seconds(minutes * 60)
+            .formatted(.units(allowed: [.hours, .minutes], width: .narrow))
+    }
+
+    private static func arrival(_ seconds: TimeInterval, after date: Date) -> Text {
+        Text("around \(date.addingTimeInterval(seconds).formatted(date: .omitted, time: .shortened))")
     }
 
     // MARK: Breakdown

@@ -33,7 +33,7 @@ struct SessionsView: View {
     @State private var confirmingDelete = false
 
     var body: some View {
-        PageScaffold("History", glow: .mwBattery, toolbar: AnyView(toolbar)) {
+        PageScaffold("History", glow: .mwBattery, toolbar: AnyView(toolbar), layout: .list) {
             if let session = monitor.currentSession {
                 currentPanel(session)
             }
@@ -171,22 +171,14 @@ struct SessionDetailView: View {
     var body: some View {
         ZStack {
             Backdrop(glow: .mwBattery)
-            ScrollView {
-                VStack(spacing: 14) {
-                    energyPanel
-                    powerPanel
-                    climatePanel
-                    cablePanel
-                    detailsPanel
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 24)
-                // Pinned to the container's width so nothing inside can widen the
-                // scroll content. A paragraph inside an HStack reports an enormous
-                // ideal width — the text unwrapped onto one line — and
-                // `.frame(maxWidth: .infinity)` only expands, it does not clamp, so
-                // that width propagates up and the page starts scrolling sideways.
-                .containerRelativeFrame(.horizontal)
+            // The same column as the tabs: capped on an iPad, two columns on a wide
+            // one. It used to have no cap at all and ran edge to edge.
+            PanelScroll {
+                energyPanel
+                powerPanel
+                climatePanel
+                cablePanel
+                detailsPanel
             }
         }
         .navigationTitle(session.titleText)
@@ -266,10 +258,10 @@ struct SessionDetailView: View {
                 EmptyNote(text: "No samples recorded.")
             } else {
                 VStack(alignment: .leading, spacing: 8) {
-                    SessionClimateChart(samples: session.samples)
+                    SessionClimateChart(samples: session.samples, unit: monitor.temperatureUnit)
                     HStack(spacing: 14) {
                         LegendDot(color: .mwWireless, text: "Charge %")
-                        LegendDot(color: .mwLoss, text: "Battery °C")
+                        LegendDot(color: .mwLoss, text: "Battery temperature")
                     }
                 }
             }
@@ -344,7 +336,7 @@ struct SessionDetailView: View {
                 DetailRow(label: "Rated", value: session.adapterRatedWatts.map { String(format: "%.0f W", $0) })
                 DetailRow(label: "Peak from charger", value: session.measuredPeakInputWatts.map { String(format: "%.2f W", $0) })
                 DetailRow(label: "Peak into cell", value: String(format: "%.2f W", session.peakBatteryWatts))
-                DetailRow(label: "Peak cell temp", value: session.peakBatteryTemperature.map { String(format: "%.1f °C", $0) })
+                DetailRow(label: "Peak cell temp", value: session.peakBatteryTemperature.map { monitor.temperatureUnit.reading($0) })
                 DetailRow(label: "Average in", value: session.totals.averageInputWatts.map { String(format: "%.2f W", $0) })
                 DetailRow(label: "Path resistance",
                           value: session.pathMilliohms.map { String(format: "%.0f mΩ", $0) })

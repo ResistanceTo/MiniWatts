@@ -202,6 +202,9 @@ struct SessionPowerChart: View {
 /// little height and let the temperature have a scale it can actually move on.
 struct SessionClimateChart: View {
     let samples: [ChargeSample]
+    /// The samples are Celsius; the pane is drawn in this scale, so its axis can be
+    /// labelled with plain numbers.
+    var unit: TemperatureDisplayUnit = .celsius
     var height: CGFloat = 150
 
     private var xDomain: ClosedRange<Double> {
@@ -214,8 +217,10 @@ struct SessionClimateChart: View {
     }
 
     private var temperatureDomain: ClosedRange<Double> {
-        let values = temperatures.compactMap(\.batteryTemperature)
-        guard let low = values.min(), let high = values.max() else { return 20...45 }
+        let values = temperatures.compactMap(\.batteryTemperature).map(unit.value(fromCelsius:))
+        guard let low = values.min(), let high = values.max() else {
+            return unit.value(fromCelsius: 20)...unit.value(fromCelsius: 45)
+        }
         let padding = max((high - low) * 0.2, 1)
         return (low - padding)...(high + padding)
     }
@@ -253,7 +258,7 @@ struct SessionClimateChart: View {
             } else {
                 Chart(temperatures) { sample in
                     LineMark(x: .value("Elapsed", sample.offset),
-                             y: .value("Celsius", sample.batteryTemperature ?? 0))
+                             y: .value("Temperature", unit.value(fromCelsius: sample.batteryTemperature ?? 0)))
                         .foregroundStyle(Color.mwLoss)
                         .lineStyle(StrokeStyle(lineWidth: 1.4))
                         .interpolationMethod(.monotone)
@@ -274,8 +279,8 @@ struct SessionClimateChart: View {
                     AxisMarks(position: .trailing, values: .automatic(desiredCount: 3)) { value in
                         AxisGridLine().foregroundStyle(Color.mwGrid)
                         AxisValueLabel {
-                            if let celsius = value.as(Double.self) {
-                                Text(String(format: "%.0f°", celsius)).mwMono(size: 9).foregroundStyle(Color.mwMuted)
+                            if let degrees = value.as(Double.self) {
+                                Text(verbatim: String(format: "%.0f°", degrees)).mwMono(size: 9).foregroundStyle(Color.mwMuted)
                             }
                         }
                     }
@@ -330,6 +335,8 @@ struct Sparkline: View {
 /// Rolling three-minute view of the hottest sensor in the phone.
 struct LiveTemperatureChart: View {
     let samples: [LiveSample]
+    /// Drawn in this scale; the samples themselves are Celsius.
+    var unit: TemperatureDisplayUnit = .celsius
     var height: CGFloat = 110
 
     private var points: [LiveSample] {
@@ -337,9 +344,9 @@ struct LiveTemperatureChart: View {
     }
 
     private var domain: ClosedRange<Double> {
-        let values = points.compactMap(\.hottestTemperature)
+        let values = points.compactMap(\.hottestTemperature).map(unit.value(fromCelsius:))
         guard let low = values.min(), let high = values.max(), low.isFinite, high.isFinite else {
-            return 20...50
+            return unit.value(fromCelsius: 20)...unit.value(fromCelsius: 50)
         }
         let padding = max((high - low) * 0.3, 1.5)
         return (low - padding)...(high + padding)
@@ -348,13 +355,13 @@ struct LiveTemperatureChart: View {
     var body: some View {
         Chart(points) { sample in
             AreaMark(x: .value("Time", sample.date),
-                     y: .value("°C", sample.hottestTemperature ?? 0))
+                     y: .value("Temperature", unit.value(fromCelsius: sample.hottestTemperature ?? 0)))
                 .foregroundStyle(LinearGradient(colors: [Color.mwLoss.opacity(0.35), Color.mwLoss.opacity(0.02)],
                                                 startPoint: .top,
                                                 endPoint: .bottom))
                 .interpolationMethod(.monotone)
             LineMark(x: .value("Time", sample.date),
-                     y: .value("°C", sample.hottestTemperature ?? 0))
+                     y: .value("Temperature", unit.value(fromCelsius: sample.hottestTemperature ?? 0)))
                 .foregroundStyle(Color.mwLoss)
                 .lineStyle(StrokeStyle(lineWidth: 2))
                 .interpolationMethod(.monotone)
@@ -365,8 +372,8 @@ struct LiveTemperatureChart: View {
             AxisMarks(position: .trailing, values: .automatic(desiredCount: 3)) { value in
                 AxisGridLine().foregroundStyle(Color.mwGrid)
                 AxisValueLabel {
-                    if let celsius = value.as(Double.self) {
-                        Text(String(format: "%.0f°", celsius)).mwMono(size: 9).foregroundStyle(Color.mwMuted)
+                    if let degrees = value.as(Double.self) {
+                        Text(verbatim: String(format: "%.0f°", degrees)).mwMono(size: 9).foregroundStyle(Color.mwMuted)
                     }
                 }
             }

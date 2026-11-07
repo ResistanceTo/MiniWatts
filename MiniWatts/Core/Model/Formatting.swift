@@ -1,8 +1,8 @@
 import Foundation
 
 nonisolated enum Formatting {
-    static func temperature(_ celsius: Double) -> String {
-        String(format: "%.1f °C", celsius)
+    static func temperature(_ celsius: Double, in unit: TemperatureDisplayUnit) -> String {
+        unit.reading(celsius)
     }
 
     static func watts(_ value: Double) -> String {

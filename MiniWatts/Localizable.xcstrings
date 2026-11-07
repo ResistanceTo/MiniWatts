@@ -34,12 +34,42 @@
         }
       }
     },
+    "around %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "约 %@"
+          }
+        }
+      }
+    },
     "at the current draw" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "按当前取电"
+          }
+        }
+      }
+    },
+    "Automatic" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动"
+          }
+        }
+      }
+    },
+    "Automatic follows your region and the Temperature setting under General › Language & Region in the Settings app, which is %@ on this device. Applies to the app, the floating meter, the Live Activity and the widget. Raw data always shows the sensors' own °C." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“自动”跟随你的地区，以及“设置” App 中“通用 › 语言与地区”下的“温度”选项，本机当前为 %@。此设置对 App、悬浮读数、实时活动和小组件都生效。原始数据始终显示传感器自身的 °C。"
           }
         }
       }
@@ -80,6 +110,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "线缆对比"
+          }
+        }
+      }
+    },
+    "Charge forecast" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "充电预估"
           }
         }
       }
@@ -134,12 +174,12 @@
         }
       }
     },
-    "From one sample, against the negotiated %@. That figure is a ceiling rather than a measurement, so read this as an order of magnitude. Once the current moves — the taper past 80%, thermal throttling, the phone's own load — it is replaced by a fit that needs no reference at all." : {
+    "From one sample, against the negotiated %@. That figure is a ceiling rather than a measurement, so read this as an order of magnitude. Once the current moves — the taper past 80%%, thermal throttling, the phone's own load — it is replaced by a fit that needs no reference at all." : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "单次采样，以协商出的 %@ 为参考。那个值是天花板而不是测量值，所以只能当数量级看。一旦电流动起来——80% 之后的涓流、热降频、手机自身的负载——它就会被一个完全不需要参考值的拟合结果取代。"
+            "value" : "单次采样，以协商出的 %@ 为参考。那个值是天花板而不是测量值，所以只能当数量级看。一旦电流动起来——80%% 之后的涓流、热降频、手机自身的负载——它就会被一个完全不需要参考值的拟合结果取代。"
           }
         }
       }
@@ -294,12 +334,32 @@
         }
       }
     },
+    "Sensor names and scales differ between models, and an iPad differs from an iPhone more than most. This build was checked on an iPhone Air; what it knows about iPads comes from one iPad Pro's sensor list. Impossible readings stay in Raw data but are left out of derived temperatures; a reading that is merely wrong cannot be spotted that way — if something here looks off for your iPad, it may well be." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "传感器的名称和换算方式因机型而异，iPad 与 iPhone 的差别尤其大。这个版本是在 iPhone Air 上验证的，对 iPad 的了解只来自一台 iPad Pro 的传感器列表。不可能的读数仍保留在原始数据里，但不参与推算出的温度；只是错、却还说得过去的读数拦不住——如果这里有哪个数字在你的 iPad 上看着不对，很可能就是不对。"
+          }
+        }
+      }
+    },
     "Taking" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "取电比例"
+          }
+        }
+      }
+    },
+    "Temperature" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "温度"
           }
         }
       }
@@ -344,6 +404,16 @@
         }
       }
     },
+    "The temperatures are measured; the positions are not. iOS reports sensor names and values and no coordinates at all, so each zone is drawn at a fixed spot that follows the layout of an iPad Pro 11-inch — logic board down the middle between two battery cells, charge IC by the USB-C port. Other iPads are built differently. Read this as a legend for the sensor lists, not as a map of your iPad." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "温度数据为实际测量值，但位置并非如此。iOS 仅报告传感器名称和数值，完全不包含坐标信息，因此各发热区域均按 iPad Pro 11 英寸的布局绘制在固定位置 —— 主板位于中间、夹在两块电芯之间，充电芯片位于 USB-C 接口旁。其他 iPad 的内部结构不同。请将此图作为传感器列表的图例参考，而非 iPad 内部的真实地图。"
+          }
+        }
+      }
+    },
     "The voltage at the port has collapsed well below what was negotiated, and the phone is holding the current down to keep it up. That is the cable or the plugs, not the charger." : {
       "localizations" : {
         "zh-Hans" : {
@@ -354,7 +424,37 @@
         }
       }
     },
+    "To 100%" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "充到 100%"
+          }
+        }
+      }
+    },
+    "To 80%" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "充到 80%"
+          }
+        }
+      }
+    },
     "Unit" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单位"
+          }
+        }
+      }
+    },
+    "Units" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -384,12 +484,32 @@
         }
       }
     },
+    "Version" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本"
+          }
+        }
+      }
+    },
     "Voltage drop" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "电压损失"
+          }
+        }
+      }
+    },
+    "Waiting for the battery level to move twice. The forecast comes from how fast it actually rises, so it takes a few minutes to appear." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在等待电量变化两次。预估来自电量实际上升的速度，所以需要几分钟才会出现。"
           }
         }
       }
@@ -410,6 +530,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无线充电没有线缆，也没有输入电流传感器，无从测量。"
+          }
+        }
+      }
+    },
+    "Worked out from how fast the level has been rising — %lld%% in the last %@. Charging slows past 80%%, so the time beyond it follows a typical charging curve and is approximate. A charge limit or Optimized Charging stops the battery short of 100%%." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "根据电量上升的速度推算 —— 最近 %2$@ 内上升了 %1$lld%%。超过 80%% 后充电会变慢，这之后的时间按典型充电曲线估算，只是近似值。开启充电上限或优化电池充电时，电池不会充到 100%%。"
           }
         }
       }
@@ -474,9 +604,6 @@
         }
       }
     },
-    "%lld" : {
-      "shouldTranslate" : false
-    },
     "%lld samples" : {
       "localizations" : {
         "zh-Hans" : {
@@ -522,19 +649,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "占适配器 %lld%%"
-          }
-        }
-      }
-    },
-    "°C" : {
-      "shouldTranslate" : false
-    },
-    "46+" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "46+"
           }
         }
       }
@@ -665,16 +779,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "电池"
-          }
-        }
-      }
-    },
-    "Battery °C" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "电池温度 °C"
           }
         }
       }

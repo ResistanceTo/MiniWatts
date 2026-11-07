@@ -4,6 +4,8 @@ struct ThermalView: View {
     @Environment(PowerMonitor.self) private var monitor
 
     private var snapshot: PowerSnapshot { monitor.snapshot }
+    private var unit: TemperatureDisplayUnit { monitor.temperatureUnit }
+    private let form = DeviceForm.current
 
     /// One reading per zone, which is what the map draws: the hottest *live* one,
     /// or for the battery the median its readout uses.
@@ -49,10 +51,19 @@ struct ThermalView: View {
     /// on every model and documented nowhere. Readings outside anything physical are
     /// dropped by `HIDSensors`, but a value that is wrong and still looks plausible
     /// cannot be caught that way, so the page says so rather than implying otherwise.
+    @ViewBuilder
     private var modelNote: some View {
-        EmptyNote(text: "Sensor names and scales differ by iPhone model, and this build was checked on an iPhone Air. Impossible readings stay in Raw data but are left out of derived temperatures; a reading that is merely wrong cannot be spotted that way — if something here looks off for your model, it may well be.",
-                  systemImage: "exclamationmark.circle")
-            .padding(.horizontal, 4)
+        // Two literals, not one ternary: the extractor reads each at its own call site.
+        switch form {
+        case .phone:
+            EmptyNote(text: "Sensor names and scales differ by iPhone model, and this build was checked on an iPhone Air. Impossible readings stay in Raw data but are left out of derived temperatures; a reading that is merely wrong cannot be spotted that way — if something here looks off for your model, it may well be.",
+                      systemImage: "exclamationmark.circle")
+                .padding(.horizontal, 4)
+        case .tablet:
+            EmptyNote(text: "Sensor names and scales differ between models, and an iPad differs from an iPhone more than most. This build was checked on an iPhone Air; what it knows about iPads comes from one iPad Pro's sensor list. Impossible readings stay in Raw data but are left out of derived temperatures; a reading that is merely wrong cannot be spotted that way — if something here looks off for your iPad, it may well be.",
+                      systemImage: "exclamationmark.circle")
+                .padding(.horizontal, 4)
+        }
     }
 
     private var glowColor: Color {
@@ -127,12 +138,15 @@ struct ThermalView: View {
     // MARK: Map
 
     private var mapPanel: some View {
-        Panel("Heat map · schematic", systemImage: "iphone.gen3",
+        Panel("Heat map · schematic", systemImage: form == .tablet ? "ipad" : "iphone.gen3",
               trailing: Text("\(snapshot.temperatures.count) sensors")) {
             VStack(spacing: 12) {
-                PhoneHeatMap(readings: zoneReadings)
+                DeviceHeatMap(readings: zoneReadings,
+                              form: form,
+                              unit: unit,
+                              height: form == .tablet ? 320 : 250)
                     .frame(maxWidth: .infinity)
-                TemperatureScale()
+                TemperatureScale(unit: unit)
                 if let hottest = snapshot.hottestSensor {
                     // All three carry the name of the sensor they came from, and the
                     // row is top-aligned. Only "Hottest" used to have that line, which
@@ -145,26 +159,26 @@ struct ThermalView: View {
                     // is the whole question.
                     HStack(alignment: .top, spacing: 10) {
                         Metric(caption: "Hottest",
-                               value: String(format: "%.1f", hottest.value),
-                               unit: "°C",
+                               value: unit.number(hottest.value),
+                               unit: unit.symbol,
                                tint: .mwTemperature(hottest.value),
                                footnote: sensorSource(hottest),
                                size: 22)
                         Metric(caption: "Battery",
-                               value: snapshot.batteryTemperature.map { String(format: "%.1f", $0) } ?? "—",
-                               unit: "°C",
+                               value: snapshot.batteryTemperature.map { unit.number($0) } ?? "—",
+                               unit: unit.symbol,
                                tint: snapshot.batteryTemperature.map { Color.mwTemperature($0) } ?? .primary,
                                footnote: batteryTemperatureSource,
                                size: 22)
                         Metric(caption: "Charge IC",
-                               value: snapshot.chargerTemperature.map { String(format: "%.1f", $0) } ?? "—",
-                               unit: "°C",
+                               value: snapshot.chargerTemperature.map { unit.number($0) } ?? "—",
+                               unit: unit.symbol,
                                tint: snapshot.chargerTemperature.map { Color.mwTemperature($0) } ?? .primary,
                                footnote: snapshot.hottestSensor(in: .charger).map(sensorSource),
                                size: 22)
                     }
                 }
-                Text("The temperatures are measured; the positions are not. iOS reports sensor names and values and no coordinates at all, so each zone is drawn at a fixed spot that follows the usual layout of a recent iPhone — logic board up top behind the cameras, battery through the middle, charge IC by the port. Real layouts differ by model. Read this as a legend for the list below, not as a map of your phone.")
+                mapCaption
                     .font(.caption2)
                     .foregroundStyle(Color.mwMuted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -172,9 +186,18 @@ struct ThermalView: View {
         }
     }
 
+    private var mapCaption: Text {
+        switch form {
+        case .phone:
+            Text("The temperatures are measured; the positions are not. iOS reports sensor names and values and no coordinates at all, so each zone is drawn at a fixed spot that follows the usual layout of a recent iPhone — logic board up top behind the cameras, battery through the middle, charge IC by the port. Real layouts differ by model. Read this as a legend for the list below, not as a map of your phone.")
+        case .tablet:
+            Text("The temperatures are measured; the positions are not. iOS reports sensor names and values and no coordinates at all, so each zone is drawn at a fixed spot that follows the layout of an iPad Pro 11-inch — logic board down the middle between two battery cells, charge IC by the USB-C port. Other iPads are built differently. Read this as a legend for the sensor lists, not as a map of your iPad.")
+        }
+    }
+
     private var trendPanel: some View {
         Panel("Hottest sensor, last 3 minutes", systemImage: "chart.line.uptrend.xyaxis") {
-            LiveTemperatureChart(samples: monitor.live)
+            LiveTemperatureChart(samples: monitor.live, unit: unit)
         }
     }
 
@@ -222,12 +245,12 @@ struct ThermalView: View {
 
     private func zonePanel(_ group: ZoneTemperatures) -> some View {
         Panel(group.zone.title, systemImage: group.zone.symbol,
-              trailing: group.representative.map { Text(verbatim: String(format: "%.1f °C", $0)) }) {
+              trailing: group.representative.map { Text(verbatim: unit.reading($0)) }) {
             VStack(spacing: 10) {
                 ForEach(group.readings) { reading in
                     let labels = sensorLabels(reading)
                     BarRow(title: labels.title,
-                           detail: String(format: "%.1f °C", reading.value),
+                           detail: unit.reading(reading.value),
                            fraction: (reading.value - 20) / 30,
                            tint: .mwTemperature(reading.value),
                            subtitle: labels.subtitle)

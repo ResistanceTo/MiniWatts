@@ -40,9 +40,11 @@ struct RootView: View {
             monitor.onTick = { [liveActivity, widgets, floatingMeter] snapshot in
                 let reading = ChargeReading(snapshot)
                 floatingMeter.render(snapshot: snapshot,
-                                     thermalState: monitor.thermal.state)
+                                     thermalState: monitor.thermal.state,
+                                     temperatureUnit: monitor.temperatureUnit)
                 liveActivity.sync(snapshot,
                                   selectedMetric: monitor.liveActivityMetric,
+                                  temperatureUnit: monitor.temperatureUnit,
                                   enabled: monitor.showsLiveActivityWhileCharging,
                                   isForeground: UIApplication.shared.applicationState == .active)
                 widgets.publish(reading, lastSession: monitor.sessions.first)
@@ -128,7 +130,8 @@ private struct ScreenAwakeHolder: View {
     }
 }
 
-/// Shared page chrome: the instrument backdrop behind a scrolling column of panels.
+/// Shared page chrome: the instrument backdrop behind a scrolling column of panels —
+/// two columns on a wide iPad, see `PanelScroll`.
 ///
 /// The page's content and glow are closures, called by small views of their own
 /// rather than here. Every page reads the monitor, and whatever a body reads
@@ -141,15 +144,18 @@ struct PageScaffold<Content: View>: View {
     let title: LocalizedStringResource
     var glow: () -> Color
     var toolbar: AnyView?
+    var layout: PanelLayout
     @ViewBuilder var content: () -> Content
 
     init(_ title: LocalizedStringResource,
          glow: @autoclosure @escaping () -> Color = .mwAccent,
          toolbar: AnyView? = nil,
+         layout: PanelLayout = .panels,
          @ViewBuilder content: @escaping () -> Content) {
         self.title = title
         self.glow = glow
         self.toolbar = toolbar
+        self.layout = layout
         self.content = content
     }
 
@@ -157,30 +163,7 @@ struct PageScaffold<Content: View>: View {
         NavigationStack {
             ZStack {
                 PageBackdrop(glow: glow)
-                ScrollView {
-                    // Lazy, not a plain `VStack`. History puts up to sixty session
-                    // panels in here, each with its own sparkline, and an eager stack
-                    // builds and measures every one of them — while charging, once a
-                    // second, because the page reads the live session.
-                    LazyVStack(spacing: 14) {
-                        PageContent(content: content)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 4)
-                    .padding(.bottom, 24)
-                    // Pinned to the container's width so nothing inside can widen the
-                    // scroll content. A paragraph inside an HStack reports an enormous
-                    // ideal width — the text unwrapped onto one line — and
-                    // `.frame(maxWidth: .infinity)` only expands, it does not clamp, so
-                    // that width propagates up and the page starts scrolling sideways.
-                    //
-                    // Capped at 760 pt for an iPad, and the cap has to be part of this
-                    // same frame: the pin is a fixed width, so a `frame(maxWidth:)`
-                    // after it cannot narrow it — the content just overflows that frame
-                    // by the same amount on both sides and looks exactly as wide as before.
-                    .containerRelativeFrame(.horizontal) { width, _ in min(width, 760) }
-                    .frame(maxWidth: .infinity)
-                }
+                PanelScroll(layout: layout, content: content)
             }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.large)
@@ -190,17 +173,6 @@ struct PageScaffold<Content: View>: View {
                 }
             }
         }
-    }
-}
-
-/// Calls a page's content closure, so that the monitor reads inside it are this
-/// view's dependencies and not `PageScaffold`'s. A custom view's body is flattened
-/// into the enclosing list, so the stack stays lazy panel by panel.
-private struct PageContent<Content: View>: View {
-    let content: () -> Content
-
-    var body: some View {
-        content()
     }
 }
 

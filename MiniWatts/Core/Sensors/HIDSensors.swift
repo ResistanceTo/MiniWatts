@@ -51,7 +51,8 @@ nonisolated final class HIDSensors {
             switch kind {
             case .current: return String(format: "%.3f A", value)
             case .voltage: return String(format: "%.3f V", value)
-            case .temperature: return Formatting.temperature(value)
+            // Raw data and the exclusion list show what the sensor returned: Celsius.
+            case .temperature: return Formatting.temperature(value, in: .celsius)
             case .other: return String(format: "%.3f", value)
             }
         }

@@ -121,9 +121,13 @@ final class FloatingMeterController {
     /// The gate is "painted once", not "the system says a window is possible". The
     /// latter was tried first and never came true on a device while the window was
     /// closed, so the frames kept coming exactly as before.
-    func render(snapshot: PowerSnapshot, thermalState: ProcessInfo.ThermalState) {
+    func render(snapshot: PowerSnapshot,
+                thermalState: ProcessInfo.ThermalState,
+                temperatureUnit: TemperatureDisplayUnit) {
         guard status != .unsupported else { return }
-        latestData = FloatingMeterData(snapshot: snapshot, thermalState: thermalState)
+        latestData = FloatingMeterData(snapshot: snapshot,
+                                       thermalState: thermalState,
+                                       temperatureUnit: temperatureUnit)
         guard isRunning || !hasPainted else { return }
         // The tick is already once a second; this only guards against a burst.
         guard Date.now.timeIntervalSince(lastFrame) >= 0.4 else { return }

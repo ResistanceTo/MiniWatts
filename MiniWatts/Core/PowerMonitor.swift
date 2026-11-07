@@ -25,6 +25,9 @@ final class PowerMonitor {
     /// Watts estimated from how fast the percentage moves. The only way to see
     /// discharge power: no discharge-current sensor is exposed to a sandboxed app.
     private(set) var rateEstimateWatts: Double?
+    /// Time to 80 % and to full, from the same level changes, while charging. See
+    /// `ChargeForecast`.
+    private(set) var chargeForecast: ChargeForecast?
     /// The level's rise against the cell sensors over the same stretch, while
     /// charging. See `LevelRateCheck`.
     private(set) var levelRateCheck: LevelRateCheck?
@@ -67,6 +70,20 @@ final class PowerMonitor {
                                       forKey: Self.liveActivityMetricKey)
         }
     }
+
+    /// Celsius, Fahrenheit, or whatever the system's region asks for (#25). Kept in
+    /// the standard defaults like every other setting, and mirrored into the App
+    /// Group's so the widget extension can follow it.
+    var temperatureUnitSetting: TemperatureUnitSetting {
+        didSet {
+            UserDefaults.standard.set(temperatureUnitSetting.rawValue, forKey: TemperatureUnitSetting.storageKey)
+            TemperatureUnitSetting.sharedDefaults?.set(temperatureUnitSetting.rawValue,
+                                                       forKey: TemperatureUnitSetting.storageKey)
+        }
+    }
+
+    /// The scale every temperature on screen is written in.
+    var temperatureUnit: TemperatureDisplayUnit { temperatureUnitSetting.resolved }
 
     let thermal = ThermalMonitor()
 
@@ -197,6 +214,8 @@ final class PowerMonitor {
         showsLiveActivityWhileCharging = defaults.object(forKey: Self.liveActivityKey) as? Bool ?? true
         liveActivityMetric = defaults.string(forKey: Self.liveActivityMetricKey)
             .flatMap(LiveActivityMetric.init(rawValue:)) ?? .chargingPower
+        temperatureUnitSetting = defaults.string(forKey: TemperatureUnitSetting.storageKey)
+            .flatMap(TemperatureUnitSetting.init(rawValue:)) ?? .automatic
         sensorServiceCount = probeService.initialServiceCount
         collectDiagnostics()
         Task { await loadStoredSessions() }
@@ -523,6 +542,7 @@ final class PowerMonitor {
         guard let percent = snapshot.percent else {
             rateEstimateWatts = nil
             levelRateCheck = nil
+            chargeForecast = nil
             lastRateObservationDate = nil
             return
         }
@@ -539,6 +559,7 @@ final class PowerMonitor {
                 percentLog.removeAll()
                 rateEstimateWatts = nil
                 levelRateCheck = nil
+                chargeForecast = nil
             } else if gap > Self.rateContinuityInterval, percentLog.last?.percent != percent {
                 // A short hole, and the level moved somewhere inside it. When is
                 // not known — only that it was before now — and stamping it now
@@ -557,6 +578,7 @@ final class PowerMonitor {
             percentLog.removeAll()
             rateEstimateWatts = nil
             levelRateCheck = nil
+            chargeForecast = nil
         }
         if percentLog.last?.percent != percent {
             percentLog.append((snapshot.date, percent, cellWattHours, cellSeconds))
@@ -568,6 +590,9 @@ final class PowerMonitor {
         guard hours > 0 else { return }
         let estimate = Double(last.percent - first.percent) / 100 * batteryWattHours / hours
         rateEstimateWatts = estimate
+        chargeForecast = snapshot.isCharging
+            ? ChargeForecast(levelChanges: transitions.map { ($0.date, $0.percent) })
+            : nil
         updateLevelRateCheck(levelWatts: estimate, from: first, to: last, charging: snapshot.isCharging)
     }
 

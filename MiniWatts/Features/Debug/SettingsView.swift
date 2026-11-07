@@ -1,4 +1,5 @@
 import SwiftUI
+import WidgetKit
 
 struct SettingsView: View {
     @Environment(PowerMonitor.self) private var monitor
@@ -14,6 +15,7 @@ struct SettingsView: View {
                 ScrollView {
                     VStack(spacing: 14) {
                         recordingPanel(keepAwake: $monitor.keepScreenAwakeWhileCharging)
+                        unitsPanel(temperature: $monitor.temperatureUnitSetting)
                         glancesPanel(liveActivity: $monitor.showsLiveActivityWhileCharging,
                                      metric: $monitor.liveActivityMetric)
                         floatingPanel(showPower: $floatingMeter.showPower,
@@ -39,6 +41,11 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+            // A widget shows the battery temperature too. Asked from the foreground, the
+            // reload does not count against its refresh budget.
+            .onChange(of: monitor.temperatureUnitSetting) {
+                WidgetCenter.shared.reloadAllTimelines()
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Done") { dismiss() }.tint(.mwAccent)
@@ -60,6 +67,27 @@ struct SettingsView: View {
                     .foregroundStyle(Color.mwMuted)
                     .fixedSize(horizontal: false, vertical: true)
                 Text("A charge session survives the app being backgrounded: it ends when you unplug, not when you switch away. Any stretch the app missed is left out of the totals rather than estimated, and the session says how much of itself was actually measured.")
+                    .font(.caption)
+                    .foregroundStyle(Color.mwMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// Temperatures are read, stored and coloured in Celsius; this only changes how
+    /// they are written (#25).
+    private func unitsPanel(temperature: Binding<TemperatureUnitSetting>) -> some View {
+        Panel("Units", systemImage: "thermometer.medium") {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Temperature")
+                    .font(.system(size: 14, weight: .medium))
+                Picker("Temperature", selection: temperature) {
+                    Text("Automatic").tag(TemperatureUnitSetting.automatic)
+                    Text(verbatim: "°C").tag(TemperatureUnitSetting.celsius)
+                    Text(verbatim: "°F").tag(TemperatureUnitSetting.fahrenheit)
+                }
+                .pickerStyle(.segmented)
+                Text("Automatic follows your region and the Temperature setting under General › Language & Region in the Settings app, which is \(TemperatureDisplayUnit.regional.symbol) on this device. Applies to the app, the floating meter, the Live Activity and the widget. Raw data always shows the sensors' own °C.")
                     .font(.caption)
                     .foregroundStyle(Color.mwMuted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -255,7 +283,7 @@ struct SettingsView: View {
     }
 
     private var devicePanel: some View {
-        Panel("Device", systemImage: "iphone") {
+        Panel("Device", systemImage: DeviceForm.current == .tablet ? "ipad" : "iphone") {
             VStack(spacing: 0) {
                 DetailRow(label: "Model identifier", value: monitor.deviceModelIdentifier)
                 DetailRow(label: "System", value: "iOS \(UIDevice.current.systemVersion)")
@@ -306,9 +334,21 @@ struct SettingsView: View {
     /// a string literal would only show up as a force-unwrap crash on this screen.
     private static let repository = URL(string: "https://github.com/ResistanceTo/MiniWatts")!
 
+    /// "1.6.0 (412)": the release tag and the commit count, which `build-ipa.sh` writes
+    /// into the bundle. A build run from Xcode carries the project file's 1.0 (1).
+    static var versionText: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "—"
+        guard let build = info?["CFBundleVersion"] as? String else { return version }
+        return "\(version) (\(build))"
+    }
+
     private var aboutPanel: some View {
         Panel("About", systemImage: "info.circle") {
             VStack(alignment: .leading, spacing: 10) {
+                // Asked for in #27: there was no way to tell from inside the app which
+                // release was installed, and so whether a newer one was worth fetching.
+                DetailRow(label: "Version", value: Self.versionText)
                 HStack(spacing: 10) {
                     Image(systemName: "chevron.left.forwardslash.chevron.right")
                         .font(.system(size: 14, weight: .semibold))

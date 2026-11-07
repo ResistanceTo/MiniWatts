@@ -246,15 +246,18 @@ struct ActivityFootnote: View {
     }
 }
 
+/// The number shown for a metric, temperatures in the scale the app was set to. The
+/// unit after it stays a bare "°" either way: the Lock Screen has no width to spare.
 private func numericValue(
     for metric: LiveActivityMetric,
     state: ChargeActivityContentState
 ) -> Double? {
+    let unit = state.temperatureUnit ?? TemperatureUnitSetting.shared.resolved
     switch metric {
-    case .chargingPower: state.reading.watts
-    case .socTemperature: state.socTemperature
-    case .batteryTemperature: state.batteryTemperature
-    case .hottestTemperature: state.hottestTemperature
+    case .chargingPower: return state.reading.watts
+    case .socTemperature: return state.socTemperature.map(unit.value(fromCelsius:))
+    case .batteryTemperature: return state.batteryTemperature.map(unit.value(fromCelsius:))
+    case .hottestTemperature: return state.hottestTemperature.map(unit.value(fromCelsius:))
     }
 }
 

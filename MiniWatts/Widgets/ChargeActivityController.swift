@@ -33,10 +33,13 @@ final class ChargeActivityController {
 
     func sync(_ snapshot: PowerSnapshot,
               selectedMetric: LiveActivityMetric,
+              temperatureUnit: TemperatureDisplayUnit,
               enabled: Bool,
               isForeground: Bool) {
         adoptExistingActivities()
-        let state = Self.contentState(from: snapshot, selectedMetric: selectedMetric)
+        let state = Self.contentState(from: snapshot,
+                                      selectedMetric: selectedMetric,
+                                      temperatureUnit: temperatureUnit)
         guard enabled else {
             end(with: state, dismissal: .immediate)
             return
@@ -146,6 +149,7 @@ final class ChargeActivityController {
         let oldReading = old.reading
         let newReading = new.reading
         return old.selectedMetric != new.selectedMetric
+            || old.temperatureUnit != new.temperatureUnit
             || oldReading.percent != newReading.percent
             || oldReading.source != newReading.source
             || oldReading.isCharging != newReading.isCharging
@@ -161,14 +165,16 @@ final class ChargeActivityController {
 
     private static func contentState(
         from snapshot: PowerSnapshot,
-        selectedMetric: LiveActivityMetric
+        selectedMetric: LiveActivityMetric,
+        temperatureUnit: TemperatureDisplayUnit
     ) -> ChargeActivityContentState {
         ChargeActivityContentState(
             reading: ChargeReading(snapshot),
             socTemperature: snapshot.socTemperature,
             hottestTemperature: snapshot.hottestSensor?.value,
             hottestSensorName: snapshot.hottestSensor?.name,
-            selectedMetric: selectedMetric
+            selectedMetric: selectedMetric,
+            temperatureUnit: temperatureUnit
         )
     }
 }

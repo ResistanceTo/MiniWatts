@@ -275,7 +275,7 @@ struct DebugView: View {
     }
 
     private func fullDump() -> String {
-        var lines: [String] = ["MiniWatts raw dump — \(Formatting.timestamp(.now))"]
+        var lines: [String] = ["MiniWatts \(SettingsView.versionText) raw dump — \(Formatting.timestamp(.now))"]
         lines.append(contentsOf: monitor.diagnostics)
         lines.append("\n# Sensors")
         lines.append(contentsOf: monitor.snapshot.sensors.sorted { ($0.name, $0.index) < ($1.name, $1.index) }

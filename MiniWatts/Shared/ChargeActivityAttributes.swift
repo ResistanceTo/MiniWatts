@@ -20,6 +20,10 @@ nonisolated struct ChargeActivityContentState: Codable, Hashable {
     var hottestTemperature: Double?
     var hottestSensorName: String?
     var selectedMetric: LiveActivityMetric
+    /// The scale the app was showing temperatures in. Optional so a state encoded by
+    /// an older build still decodes; the extension then falls back to the shared
+    /// setting, and from there to the system's unit.
+    var temperatureUnit: TemperatureDisplayUnit?
 
     var date: Date { reading.date }
     var batteryTemperature: Double? { reading.batteryTemperature }

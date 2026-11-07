@@ -69,6 +69,7 @@
 				Shared/ChargeActivityAttributes.swift,
 				Shared/ChargeReading.swift,
 				Shared/ReadingWording.swift,
+				Shared/TemperatureDisplay.swift,
 				Shared/WidgetSnapshot.swift,
 			);
 			target = 7BC8FC4A3053B50B0081E0FD /* WidgetExtension */;

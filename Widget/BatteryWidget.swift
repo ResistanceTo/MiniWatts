@@ -201,7 +201,8 @@ struct MediumBatteryView: View {
                     if let temperature = reading.batteryTemperature {
                         HStack(spacing: 4) {
                             Text("Battery")
-                            Text(verbatim: Formatting.temperature(temperature))
+                            Text(verbatim: Formatting.temperature(temperature,
+                                                                  in: TemperatureUnitSetting.shared.resolved))
                                 .monospacedDigit()
                         }
                         .font(.system(size: 11, weight: .medium))

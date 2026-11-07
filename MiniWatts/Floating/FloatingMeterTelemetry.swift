@@ -49,8 +49,13 @@ nonisolated struct FloatingMeterData: Hashable {
     let hottestTemperature: Double?
     let hottestSensorName: String?
     let systemThermalState: FloatingSystemThermalState
+    /// The temperatures above stay in Celsius, which their colours are keyed to; this
+    /// is only the scale they are written in.
+    let temperatureUnit: TemperatureDisplayUnit
 
-    init(snapshot: PowerSnapshot, thermalState: ProcessInfo.ThermalState) {
+    init(snapshot: PowerSnapshot,
+         thermalState: ProcessInfo.ThermalState,
+         temperatureUnit: TemperatureDisplayUnit) {
         let reading = ChargeReading(snapshot)
         date = snapshot.date
         externalConnected = snapshot.externalConnected
@@ -64,6 +69,7 @@ nonisolated struct FloatingMeterData: Hashable {
         hottestTemperature = snapshot.hottestSensor?.value
         hottestSensorName = snapshot.hottestSensor?.name
         systemThermalState = FloatingSystemThermalState(thermalState)
+        self.temperatureUnit = temperatureUnit
     }
 }
 
@@ -316,7 +322,7 @@ struct FloatingMeterTelemetryFrame: View {
             }
             // A single concatenated Text keeps the decimal and degree sign on one
             // typographic baseline and prevents narrow cells wrapping after '.'.
-            (Text(verbatim: formatted(value))
+            (Text(verbatim: formattedTemperature(value))
                 .font(.system(size: compact ? 34 : 29, weight: .bold, design: .rounded))
              + Text(verbatim: "°")
                 .font(.system(size: compact ? 16 : 14, weight: .semibold, design: .rounded))
@@ -352,11 +358,11 @@ struct FloatingMeterTelemetryFrame: View {
                 .font(.system(size: compact ? 17 : 20, weight: .semibold, design: .rounded))
                 .foregroundStyle(temperatureColor(value))
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(verbatim: formatted(value))
+                Text(verbatim: formattedTemperature(value))
                     .font(.system(size: compact ? 62 : 88, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .minimumScaleFactor(0.7)
-                Text(verbatim: "°C")
+                Text(verbatim: (data?.temperatureUnit ?? .celsius).symbol)
                     .font(.system(size: compact ? 19 : 26, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
             }
@@ -391,6 +397,11 @@ struct FloatingMeterTelemetryFrame: View {
 
     private func formatted(_ value: Double?) -> String {
         value?.formatted(.number.precision(.fractionLength(1))) ?? "—"
+    }
+
+    /// A Celsius reading written in the scale the app is set to.
+    private func formattedTemperature(_ celsius: Double?) -> String {
+        formatted(celsius.map { (data?.temperatureUnit ?? .celsius).value(fromCelsius: $0) })
     }
 
     private func temperatureColor(_ value: Double?) -> Color {

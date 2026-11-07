@@ -29,11 +29,13 @@ struct DevicesView: View {
 
     private var thisPhonePanel: some View {
         let snapshot = monitor.snapshot
-        return Panel("This device", systemImage: "iphone",
+        // An iPad was shown with an iPhone's glyph (#13).
+        let isTablet = DeviceForm.current == .tablet
+        return Panel("This device", systemImage: isTablet ? "ipad" : "iphone",
                      trailing: Text(verbatim: monitor.deviceModelIdentifier)) {
             VStack(spacing: 12) {
                 HStack(alignment: .center, spacing: 14) {
-                    Image(systemName: "iphone.gen3")
+                    Image(systemName: isTablet ? "ipad" : "iphone.gen3")
                         .font(.system(size: 30, weight: .light))
                         .foregroundStyle(Color.mwAccent)
                     VStack(alignment: .leading, spacing: 2) {
